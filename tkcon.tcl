@@ -627,16 +627,24 @@ proc ::tkcon::InitUI {title} {
     }
     set PRIV(base) $w
 
-    set family [font actual TkFixedFont -family]
-    if {$::tcl_platform(platform) eq "windows"} {
-	set family "Consolas"
+    if {[tk windowingsystem] eq "win32"} {
+        catch {font create tkconui    -family "Segoe UI" -size 10}
+        catch {font create tkconfixed -family "Cascadia Code" -size 10}
+    } elseif {[tk windowingsystem] eq "aqua"} {
+        catch {font create tkconui    -family "SF Pro Text" -size 15}
+        catch {font create tkconfixed -family "SF Mono" -size 13}
+    } else {
+        font create tkconui    {*}[font configure TkTextFont]
+        font create tkconfixed {*}[font configure TkFixedFont]
     }
-    set size [font actual TkFixedFont -size]
-    set PRIV(fontsize) $size
-    catch {font create tkconfixed      -family $family -size $size}
-    catch {font create tkconfixedbold  -family $family -size $size -weight bold}
-    catch {font create tkconfixedlarge -family $family -size [expr {$size + 4}] -weight bold}
-    catch {font create tkconfixedsmall -family $family -size [expr {$size - 4}] -weight bold}
+
+    set PRIV(fontsize) [font configure tkconfixed -size]
+    catch {font create tkconfixed      -family [font configure tkconfixed -family] -size $PRIV(fontsize)}
+    catch {font create tkconfixedbold  -family [font configure tkconfixed -family] -size $PRIV(fontsize) -weight bold}
+    catch {font create tkconfixedlarge -family [font configure tkconfixed -family] -size [expr {int(1.5 * $PRIV(fontsize))}] -weight bold}
+    catch {font create tkconfixedsmall -family [font configure tkconfixed -family] -size [expr {int(0.8 * $PRIV(fontsize))}] -weight bold}
+
+    ttk::style configure .$w -font tkconui
 
     set PRIV(statusbar) [set sbar [ttk::frame $w.fstatus]]
     set PRIV(tabframe)  [ttk::frame $sbar.tabs -relief sunken -borderwidth 1]
@@ -771,8 +779,10 @@ proc ::tkcon::InitTab {w} {
 
     # text console
     set con $w.tab[incr PRIV(uid)]
+    set padding [expr {int(0.333333333333333 * $PRIV(fontsize))}]
     text $con -wrap char -foreground $COLOR(stdin) \
-	-insertbackground $COLOR(cursor) -borderwidth 1 -highlightthickness 0
+	-insertbackground $COLOR(cursor) -borderwidth 1 -highlightthickness 0 \
+	-padx $padding -pady $padding
     $con mark set output 1.0
     $con mark set limit 1.0
     if {$COLOR(bg) ne ""} {
@@ -4862,7 +4872,7 @@ proc tkcon_dir {args} {
 		    switch -glob $st(type) {
 			d* { append f $sep }
 			l* { append f "@ -> [file readlink $d$sep$f]" }
-			default { if {[file exec $d$sep$f]} { append f * } }
+			default { if {[file executable $d$sep$f]} { append f * } }
 		    }
 		}
 		if {[string match file $st(type)]} {
@@ -4906,7 +4916,7 @@ proc tkcon_dir {args} {
 		    switch -glob [file type $d$sep$f] {
 			d* { append f $sep }
 			l* { append f @ }
-			default { if {[file exec $d$sep$f]} { append f * } }
+			default { if {[file executable $d$sep$f]} { append f * } }
 		    }
 		}
 		append res [format "%-${i}s" $f]
@@ -5604,19 +5614,6 @@ proc ::tkcon::Bindings {} {
 	    %W delete insert {insert wordend}
 	}
     }
-    bind TkConsole <ButtonRelease-2> {
-	if {
-	    (!$tk::Priv(mouseMoved) || $tk_strictMotif) &&
-	    ![catch {::tkcon::GetSelection %W} ::tkcon::PRIV(tmp)]
-	} {
-	    if {[%W compare @%x,%y < limit]} {
-		%W insert end $::tkcon::PRIV(tmp)
-	    } else {
-		%W insert @%x,%y $::tkcon::PRIV(tmp)
-	    }
-	    if {[string match *\n* $::tkcon::PRIV(tmp)]} {::tkcon::Eval %W}
-	}
-    }
 
     ##
     ## End TkConsole bindings
@@ -6243,7 +6240,7 @@ proc ::tkcon::SafeLoad {i f p} {
 	if {[llength [info command event]]} {
 	    $i alias event ::tkcon::SafeManage $i $command
 	}
-	frame .${i}_dot -width 300 -height 300 -relief raised
+	ttk::frame .${i}_dot -width 300 -height 300 -relief raised
 	pack .${i}_dot -side left
 	$i alias tk tk
 	$i alias bind ::tkcon::SafeBind $i
