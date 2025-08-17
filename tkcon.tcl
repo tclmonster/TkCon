@@ -156,8 +156,8 @@ proc ::tkcon::Init {args} {
 	showmenu	1
 	showmultiple	1
 	showstatusbar	1
-	slaveeval	{}
-	slaveexit	close
+	childeval	{}
+	childexit	close
 	subhistory	1
 	tabspace	8
 	gc-delay	60000
@@ -167,7 +167,7 @@ proc ::tkcon::Init {args} {
 	resultfilter	{}
 	runcmd          {}
 
-	exec		slave
+	exec		child
     } {
 	if {![info exists OPT($key)]} { set OPT($key) $default }
     }
@@ -175,7 +175,7 @@ proc ::tkcon::Init {args} {
     foreach {key default} {
 	app		{}
 	appname		{}
-	apptype		slave
+	apptype		child
 	namesp		::
 	cmd		{}
 	cmdbuf		{}
@@ -192,7 +192,7 @@ proc ::tkcon::Init {args} {
 	errorInfo	{}
 	protocol	exit
 	showOnStartup	1
-	slaveprocs	{
+	childprocs	{
 	    alias tkcon_clear tkcon_dir dump echo idebug tkcon_lremove
 	    tkcon_puts tkcon_gets observe observe_var unalias which what
 	}
@@ -208,7 +208,7 @@ proc ::tkcon::Init {args} {
 	if {![info exists PRIV($key)]} { set PRIV($key) $default }
     }
     foreach {key default} {
-	slavealias	{ $OPT(edit) more less tkcon }
+	childalias	{ $OPT(edit) more less tkcon }
     } {
 	if {![info exists PRIV($key)]} { set PRIV($key) [subst $default] }
     }
@@ -236,10 +236,10 @@ proc ::tkcon::Init {args} {
     #set OPT(exec) {}
 
     if {$PRIV(WWW)} {
-	lappend PRIV(slavealias) history
+	lappend PRIV(childalias) history
 	set OPT(prompt1) {[history nextid] % }
     } else {
-	lappend PRIV(slaveprocs) tcl_unknown unknown
+	lappend PRIV(childprocs) tcl_unknown unknown
 	set OPT(prompt1) {([file tail [pwd]]) [history nextid] % }
     }
 
@@ -311,10 +311,10 @@ proc ::tkcon::Init {args} {
     catch {tclPkgUnknown dummy-name dummy-version}
 
     ## Handle rest of command line arguments after sourcing resource file
-    ## and slave is created, but before initializing UI or setting packages.
-    set slaveargs {}
-    set slavefiles {}
-    set slaveargv0 {}
+    ## and child is created, but before initializing UI or setting packages.
+    set childargs {}
+    set childfiles {}
+    set childargv0 {}
     set truth {^(1|yes|true|on)$}
     for {set i 0} {$i < $argc} {incr i} {
 	set arg [lindex $args $i]
@@ -323,8 +323,8 @@ proc ::tkcon::Init {args} {
 	    ## Handle arg based options
 	    switch -glob -- $arg {
 		-- - -argv - -args {
-		    set slaveargs [concat $slaveargs [lrange $args $i end]]
-		    set ::argv $slaveargs
+		    set childargs [concat $childargs [lrange $args $i end]]
+		    set ::argv $childargs
 		    set ::argc [llength $::argv]
 		    break
 		}
@@ -335,30 +335,30 @@ proc ::tkcon::Init {args} {
 		-package - -load	{
 		    lappend OPT(autoload) $val
 		}
-		-slave		{ append OPT(slaveeval) \n$val\n }
+		-child		{ append OPT(childeval) \n$val\n }
 		-nontcl		{ set OPT(nontcl) [regexp -nocase $truth $val]}
 		-root		{ set PRIV(root) $val }
 		-font		{ set OPT(font) $val }
 		-rcfile	{}
-		default	{ lappend slaveargs $arg; incr i -1 }
+		default	{ lappend childargs $arg; incr i -1 }
 	    }
 	} elseif {[file isfile $arg]} {
 	    if {$i == 0} {
-		set slaveargv0 $arg
+		set childargv0 $arg
 	    }
-	    lappend slavefiles $arg
+	    lappend childfiles $arg
 	} else {
-	    lappend slaveargs $arg
+	    lappend childargs $arg
 	}
     }
 
-    ## Create slave executable
+    ## Create child executable
     if {$OPT(exec) ne ""} {
-	InitSlave $OPT(exec) $slaveargs $slaveargv0
+	InitChild $OPT(exec) $childargs $childargv0
     } else {
-	set argc [llength $slaveargs]
-	set args $slaveargs
-	uplevel \#0 $slaveargs
+	set argc [llength $childargs]
+	set args $childargs
+	uplevel \#0 $childargs
     }
 
     # Try not to make tkcon override too many standard defaults, and only
@@ -371,7 +371,7 @@ proc ::tkcon::Init {args} {
 	option add $optclass*Scrollbar.borderWidth 1
     }
 
-    ## Attach to the slave, EvalAttached will then be effective
+    ## Attach to the child, EvalAttached will then be effective
     Attach $PRIV(appname) $PRIV(apptype)
     InitUI $title
     if {$OPT(exec) ne ""} {
@@ -394,9 +394,9 @@ proc ::tkcon::Init {args} {
 	}
     }
 
-    EvalSlave history keep $OPT(history)
+    EvalChild history keep $OPT(history)
     if {[info exists MainInit]} {
-	# Source history file only for the main console, as all slave
+	# Source history file only for the main console, as all child
 	# consoles will adopt from the main's history, but still
 	# keep separate histories
 	if {!$PRIV(WWW) && $OPT(usehistory) && [file exists $PRIV(histfile)]} {
@@ -407,17 +407,17 @@ proc ::tkcon::Init {args} {
 		puts stderr "error:\n$herr"
 		append PRIV(errorInfo) $::errorInfo\n
 	    }
-	    set PRIV(event) [EvalSlave history nextid]
+	    set PRIV(event) [EvalChild history nextid]
 	    puts "[expr {$PRIV(event)-1}] events added"
 	}
     }
 
-    ## Autoload specified packages in slave
-    set pkgs [EvalSlave package names]
+    ## Autoload specified packages in child
+    set pkgs [EvalChild package names]
     foreach pkg $OPT(autoload) {
 	puts -nonewline "autoloading package \"$pkg\" ... "
 	if {[lsearch -exact $pkgs $pkg]>-1} {
-	    if {[catch {EvalSlave package require [list $pkg]} pkgerr]} {
+	    if {[catch {EvalChild package require [list $pkg]} pkgerr]} {
 		puts stderr "error:\n$pkgerr"
 		append PRIV(errorInfo) $::errorInfo\n
 	    } else { puts "OK" }
@@ -426,25 +426,25 @@ proc ::tkcon::Init {args} {
 	}
     }
 
-    ## Evaluate maineval in slave
+    ## Evaluate maineval in child
     if {($OPT(maineval) ne "") && [catch {uplevel \#0 $OPT(maineval)} merr]} {
 	puts stderr "error in eval:\n$merr"
 	append PRIV(errorInfo) $::errorInfo\n
     }
 
-    ## Source extra command line argument files into slave executable
-    foreach fn $slavefiles {
-	puts -nonewline "slave sourcing \"$fn\" ... "
-	if {[catch {EvalSlave uplevel \#0 [list source $fn]} fnerr]} {
+    ## Source extra command line argument files into child executable
+    foreach fn $childfiles {
+	puts -nonewline "child sourcing \"$fn\" ... "
+	if {[catch {EvalChild uplevel \#0 [list source $fn]} fnerr]} {
 	    puts stderr "error:\n$fnerr"
 	    append PRIV(errorInfo) $::errorInfo\n
 	} else { puts "OK" }
     }
 
-    ## Evaluate slaveeval in slave
-    if {($OPT(slaveeval) ne "")
-	&& [catch {interp eval $OPT(exec) $OPT(slaveeval)} serr]} {
-	puts stderr "error in slave eval:\n$serr"
+    ## Evaluate childeval in child
+    if {($OPT(childeval) ne "")
+	&& [catch {interp eval $OPT(exec) $OPT(childeval)} serr]} {
+	puts stderr "error in child eval:\n$serr"
 	append PRIV(errorInfo) $::errorInfo\n
     }
     ## Output any error/output that may have been returned from rcfile
@@ -453,9 +453,9 @@ proc ::tkcon::Init {args} {
 	append PRIV(errorInfo) $::errorInfo
     }
     if {$OPT(exec) ne ""} {
-	StateCheckpoint [concat $PRIV(name) $OPT(exec)] slave
+	StateCheckpoint [concat $PRIV(name) $OPT(exec)] child
     }
-    StateCheckpoint $PRIV(name) slave
+    StateCheckpoint $PRIV(name) child
 
     puts "buffer line limit:\
 	[expr {$OPT(buffer)?$OPT(buffer):{unlimited}}]  \
@@ -469,36 +469,36 @@ proc ::tkcon::Init {args} {
     }
 }
 
-## ::tkcon::InitSlave - inits the slave by placing key procs and aliases in it
+## ::tkcon::InitChild - inits the child by placing key procs and aliases in it
 ## It's arg[cv] are based on passed in options, while argv0 is the same as
 ## the master.  tcl_interactive is the same as the master as well.
-# ARGS:	slave	- name of slave to init.  If it does not exist, it is created.
-#	args	- args to pass to a slave as argv/argc
+# ARGS:	child	- name of child to init.  If it does not exist, it is created.
+#	args	- args to pass to a child as argv/argc
 ##
-proc ::tkcon::InitSlave {slave {slaveargs {}} {slaveargv0 {}}} {
+proc ::tkcon::InitChild {child {childargs {}} {childargv0 {}}} {
     variable OPT
     variable COLOR
     variable PRIV
     global argv0 env auto_path
 
-    if {$slave eq ""} {
+    if {$child eq ""} {
 	return -code error "Don't init the master interpreter, goofball"
     }
-    if {![interp exists $slave]} { interp create $slave }
-    if {[interp eval $slave info command source] eq ""} {
-	$slave alias source SafeSource $slave
-	$slave alias load SafeLoad $slave
-	$slave alias open SafeOpen $slave
-	$slave alias file file
-	interp eval $slave \
+    if {![interp exists $child]} { interp create $child }
+    if {[interp eval $child info command source] eq ""} {
+	$child alias source SafeSource $child
+	$child alias load SafeLoad $child
+	$child alias open SafeOpen $child
+	$child alias file file
+	interp eval $child \
 	    [list set auto_path [tkcon_lremove $auto_path $::tk_library]]
-	interp eval $slave [dump var -nocomplain ::tcl_library env]
-	interp eval $slave { catch {source [file join $::tcl_library init.tcl]} }
-	interp eval $slave { catch unknown }
+	interp eval $child [dump var -nocomplain ::tcl_library env]
+	interp eval $child { catch {source [file join $::tcl_library init.tcl]} }
+	interp eval $child { catch unknown }
     }
     # This will likely be overridden to call DeleteTab where possible
-    $slave alias exit exit
-    interp eval $slave {
+    $child alias exit exit
+    interp eval $child {
 	# Do package require before changing around puts/gets
 	catch {set __tkcon_error ""; set __tkcon_error $errorInfo}
 	catch {package require bogus-package-name}
@@ -506,31 +506,31 @@ proc ::tkcon::InitSlave {slave {slaveargs {}} {slaveargv0 {}}} {
 	set errorInfo ${__tkcon_error}
 	unset __tkcon_error
     }
-    foreach cmd $PRIV(slaveprocs) { $slave eval [dump proc $cmd] }
-    foreach cmd $PRIV(slavealias) { $slave alias $cmd $cmd }
-    interp alias $slave ::ls $slave ::tkcon_dir -full
-    interp alias $slave ::puts $slave ::tkcon_puts
+    foreach cmd $PRIV(childprocs) { $child eval [dump proc $cmd] }
+    foreach cmd $PRIV(childalias) { $child alias $cmd $cmd }
+    interp alias $child ::ls $child ::tkcon_dir -full
+    interp alias $child ::puts $child ::tkcon_puts
     if {[llength [info commands ::tcl::chan::puts]]} {
-	interp alias $slave ::tcl::chan::puts $slave ::tkcon_puts
+	interp alias $child ::tcl::chan::puts $child ::tkcon_puts
     }
     if {$OPT(gets) ne ""} {
-	interp eval $slave { catch {rename ::gets ::tkcon_tcl_gets} }
-	interp alias $slave ::gets $slave ::tkcon_gets
+	interp eval $child { catch {rename ::gets ::tkcon_tcl_gets} }
+	interp alias $child ::gets $child ::tkcon_gets
 	if {[llength [info commands ::tcl::chan::gets]]} {
-	    interp alias $slave ::tcl::chan::gets $slave ::tkcon_gets
+	    interp alias $child ::tcl::chan::gets $child ::tkcon_gets
 	}
     }
-    if {$slaveargv0 ne ""} {
+    if {$childargv0 ne ""} {
 	# If tkcon was invoked with 1 or more filenames, then make the
-	# first filename argv0 in the slave, as tclsh/wish would do it.
-	interp eval $slave [list set argv0 $slaveargv0]
+	# first filename argv0 in the child, as tclsh/wish would do it.
+	interp eval $child [list set argv0 $childargv0]
     } else {
-	if {[info exists argv0]} {interp eval $slave [list set argv0 $argv0]}
+	if {[info exists argv0]} {interp eval $child [list set argv0 $argv0]}
     }
-    interp eval $slave set tcl_interactive $::tcl_interactive \; \
+    interp eval $child set tcl_interactive $::tcl_interactive \; \
 	    set auto_path [list [tkcon_lremove $auto_path $::tk_library]] \; \
-	    set argc [llength $slaveargs] \; \
-	    set argv  [list $slaveargs] \; {
+	    set argc [llength $childargs] \; \
+	    set argv  [list $childargs] \; {
 	if {![llength [info command bgerror]]} {
 	    proc bgerror err {
 		set body [info body bgerror]
@@ -544,7 +544,7 @@ proc ::tkcon::InitSlave {slave {slaveargs {}} {slaveargv0 {}}} {
 
     foreach pkg [tkcon_lremove [package names] Tcl] {
 	foreach v [package versions $pkg] {
-	    interp eval $slave [list package ifneeded $pkg $v \
+	    interp eval $child [list package ifneeded $pkg $v \
 		    [package ifneeded $pkg $v]]
 	}
     }
@@ -553,7 +553,7 @@ proc ::tkcon::InitSlave {slave {slaveargs {}} {slaveargv0 {}}} {
 ## ::tkcon::InitInterp - inits an interpreter by placing key
 ## procs and aliases in it.
 # ARGS: name	- interp name
-#	type	- interp type (slave|interp)
+#	type	- interp type (child|interp)
 ##
 proc ::tkcon::InitInterp {name type} {
     variable OPT
@@ -561,23 +561,23 @@ proc ::tkcon::InitInterp {name type} {
 
     ## Don't allow messing up a local master interpreter
     if {($type eq "namespace")
-	|| (($type eq "slave") &&
-	    [regexp {^([Mm]ain|Slave[0-9]+)$} $name])} { return }
+	|| (($type eq "child") &&
+	    [regexp {^([Mm]ain|Child[0-9]+)$} $name])} { return }
     set old [Attach]
     set oldname $PRIV(namesp)
     catch {
 	Attach $name $type
 	EvalAttached { catch {rename ::puts ::tkcon_tcl_puts} }
-	foreach cmd $PRIV(slaveprocs) { EvalAttached [dump proc $cmd] }
+	foreach cmd $PRIV(childprocs) { EvalAttached [dump proc $cmd] }
 	switch -exact $type {
-	    slave {
-		foreach cmd $PRIV(slavealias) {
+	    child {
+		foreach cmd $PRIV(childalias) {
 		    Main [list interp alias $name ::$cmd $PRIV(name) ::$cmd]
 		}
 	    }
 	    interp {
 		set thistkcon [::send::appname]
-		foreach cmd $PRIV(slavealias) {
+		foreach cmd $PRIV(childalias) {
 		    EvalAttached "proc $cmd args { ::send::send [list $thistkcon] $cmd \$args }"
 		}
 	    }
@@ -680,7 +680,7 @@ proc ::tkcon::InitUI {title} {
 		::tkcon::OPT(cols) ::tkcon::OPT(rows)
 	    if {[info exists ::tkcon::EXP(spawn_id)]} {
 		catch {stty rows $::tkcon::OPT(rows) columns \
-			   $::tkcon::OPT(cols) < $::tkcon::EXP(slave,name)}
+			   $::tkcon::OPT(cols) < $::tkcon::EXP(child,name)}
 	    }
 	}
     }
@@ -898,13 +898,13 @@ proc ::tkcon::NewTab {{con {}}} {
     variable ATTACH
 
     set con   [InitTab $PRIV(base)]
-    set slave [GetSlave]
-    InitSlave $slave
-    $slave alias exit ::tkcon::DeleteTab $con $slave
+    set child [GetChild]
+    InitChild $child
+    $child alias exit ::tkcon::DeleteTab $con $child
     if {$PRIV(name) ne ""} {
-	set ATTACH($con) [list [list $PRIV(name) $slave] slave]
+	set ATTACH($con) [list [list $PRIV(name) $child] child]
     } else {
-	set ATTACH($con) [list $slave slave]
+	set ATTACH($con) [list $child child]
     }
     $PRIV(X) configure -state normal
     MenuConfigure Console "Close Tab" -state normal
@@ -912,7 +912,7 @@ proc ::tkcon::NewTab {{con {}}} {
 }
 
 # The extra code arg is for the alias of exit to this function
-proc ::tkcon::DeleteTab {{con {}} {slave {}} {code 0}} {
+proc ::tkcon::DeleteTab {{con {}} {child {}} {code 0}} {
     variable PRIV
 
     set numtabs [llength $PRIV(tabs)]
@@ -943,8 +943,8 @@ proc ::tkcon::DeleteTab {{con {}} {slave {}} {code 0}} {
 
     GotoTab $nexttab
 
-    if {$slave ne "" && $slave ne $::tkcon::OPT(exec)} {
-	interp delete $slave
+    if {$child ne "" && $child ne $::tkcon::OPT(exec)} {
+	interp delete $child
     }
     destroy $PRIV(tabframe).cb[winfo name $con]
     destroy $con
@@ -1011,27 +1011,27 @@ proc ::tkcon::EvalCmd {w cmd} {
     if {$cmd ne ""} {
 	set code 0
 	if {$OPT(subhistory)} {
-	    set ev [EvalSlave history nextid]
+	    set ev [EvalChild history nextid]
 	    incr ev -1
 	    ## FIX: calcmode doesn't work with requesting history events
 	    if {$cmd eq "!!"} {
-		set code [catch {EvalSlave history event $ev} cmd]
+		set code [catch {EvalChild history event $ev} cmd]
 		if {!$code} {$w insert output $cmd\n stdin}
 	    } elseif {[regexp {^!(.+)$} $cmd dummy event]} {
 		## Check last event because history event is broken
-		set code [catch {EvalSlave history event $ev} cmd]
+		set code [catch {EvalChild history event $ev} cmd]
 		if {!$code && ![string match ${event}* $cmd]} {
-		    set code [catch {EvalSlave history event $event} cmd]
+		    set code [catch {EvalChild history event $event} cmd]
 		}
 		if {!$code} {$w insert output $cmd\n stdin}
 	    } elseif {[regexp {^\^([^^]*)\^([^^]*)\^?$} $cmd dummy old new]} {
-		set code [catch {EvalSlave history event $ev} cmd]
+		set code [catch {EvalChild history event $ev} cmd]
 		if {!$code} {
 		    regsub -all -- $old $cmd $new cmd
 		    $w insert output $cmd\n stdin
 		}
 	    } elseif {$OPT(calcmode) && ![catch {expr $cmd} err]} {
-		AddSlaveHistory $cmd
+		AddChildHistory $cmd
 		set cmd $err
 		set code -1
 	    }
@@ -1068,7 +1068,7 @@ proc ::tkcon::EvalCmd {w cmd} {
 		# early abort - must be a deleted tab
 		return
 	    }
-	    AddSlaveHistory $cmd
+	    AddChildHistory $cmd
 	    # Run any user defined result filter command.  The command is
 	    # passed result code and data.
 	    if {[llength $OPT(resultfilter)]} {
@@ -1108,43 +1108,43 @@ proc ::tkcon::EvalCmd {w cmd} {
 	}
     }
     Prompt
-    set PRIV(event) [EvalSlave history nextid]
+    set PRIV(event) [EvalChild history nextid]
 }
 
-## ::tkcon::EvalSlave - evaluates the args in the associated slave
+## ::tkcon::EvalChild - evaluates the args in the associated child
 ## args should be passed to this procedure like they would be at
 ## the command line (not like to 'eval').
 # ARGS:	args	- the command and args to evaluate
 ##
-proc ::tkcon::EvalSlave args {
+proc ::tkcon::EvalChild args {
     interp eval $::tkcon::OPT(exec) $args
 }
 
-## ::tkcon::EvalOther - evaluate a command in a foreign interp or slave
+## ::tkcon::EvalOther - evaluate a command in a foreign interp or child
 ## without attaching to it.  No check for existence is made.
-# ARGS:	app	- interp/slave name
-#	type	- (slave|interp)
+# ARGS:	app	- interp/child name
+#	type	- (child|interp)
 ##
 proc ::tkcon::EvalOther { app type args } {
-    if {$type eq "slave"} {
-	return [Slave $app $args]
+    if {$type eq "child"} {
+	return [Child $app $args]
     } else {
 	return [uplevel 1 ::send::send [list $app] $args]
     }
 }
 
-## ::tkcon::AddSlaveHistory -
+## ::tkcon::AddChildHistory -
 ## Command is added to history only if different from previous command.
 ## This also doesn't cause the history id to be incremented, although the
 ## command will be evaluated.
 # ARGS: cmd	- command to add
 ##
-proc ::tkcon::AddSlaveHistory cmd {
-    set ev [EvalSlave history nextid]
+proc ::tkcon::AddChildHistory cmd {
+    set ev [EvalChild history nextid]
     incr ev -1
-    set code [catch {EvalSlave history event $ev} lastCmd]
+    set code [catch {EvalChild history event $ev} lastCmd]
     if {$code || $cmd ne $lastCmd} {
-	EvalSlave history add $cmd
+	EvalChild history add $cmd
 	# Save history every time so it's not lost in case of an abnormal termination.
 	# Do not warn in case of an error: we don't want an error message
 	# after each command if the history file is not writable.
@@ -1179,14 +1179,14 @@ proc ::tkcon::EvalSend cmd {
 	     [tk_messageBox -title "Dead Attachment" -type yesno \
 		  -icon info -message \
 		  "\"$PRIV(app)\" appears to have died.\
-		\nReturn to primary slave interpreter?"] eq "no")} {
+		\nReturn to primary child interpreter?"] eq "no")} {
 	    set PRIV(appname) "DEAD:$PRIV(appname)"
 	    set PRIV(deadapp) 1
 	} else {
 	    set err "Attached Tk interpreter \"$PRIV(app)\" died."
 	    Attach {}
 	    set PRIV(deadapp) 0
-	    EvalSlave set errorInfo $err
+	    EvalChild set errorInfo $err
 	}
 	Prompt \n [CmdGet $PRIV(console)]
     }
@@ -1267,14 +1267,14 @@ proc ::tkcon::EvalSocketClosed {sock} {
 	 [tk_messageBox -title "Dead Attachment" -type yesno \
 	      -icon question \
 	      -message "\"$PRIV(app)\" appears to have died.\
-	    \nReturn to primary slave interpreter?"] eq "no")} {
+	    \nReturn to primary child interpreter?"] eq "no")} {
 	set PRIV(appname) "DEAD:$PRIV(appname)"
 	set PRIV(deadapp) 1
     } else {
 	set err "Attached Tk interpreter \"$PRIV(app)\" died."
 	Attach {}
 	set PRIV(deadapp) 0
-	EvalSlave set errorInfo $err
+	EvalChild set errorInfo $err
     }
     Prompt \n [CmdGet $PRIV(console)]
 }
@@ -1418,7 +1418,7 @@ proc ::tkcon::Prompt {{pre {}} {post {}} {prompt {}}} {
     if {$prompt ne ""} {
 	$w insert end $prompt prompt
     } else {
-	$w insert end [EvalSlave subst $OPT(prompt1)] prompt
+	$w insert end [EvalChild subst $OPT(prompt1)] prompt
     }
     $w mark set output $i
     $w mark set insert end
@@ -1725,12 +1725,12 @@ proc ::tkcon::HistoryMenu m {
     variable PRIV
 
     if {![winfo exists $m]} return
-    set id [EvalSlave history nextid]
+    set id [EvalChild history nextid]
     if {$PRIV(histid)==$id} return
     set PRIV(histid) $id
     $m delete 0 end
     while {($id>1) && ($id>$PRIV(histid)-10) && \
-	    ![catch {EvalSlave history event [incr id -1]} tmp]} {
+	    ![catch {EvalChild history event [incr id -1]} tmp]} {
 	set lbl $tmp
 	if {[string len $lbl]>32} { set lbl [string range $tmp 0 28]... }
 	$m add command -label "$id: $lbl" -command "
@@ -1917,7 +1917,7 @@ proc ::tkcon::AttachMenu m {
 
     $m delete 0 end
     set cmd {::tkcon::RePrompt \n [::tkcon::CmdGet $::tkcon::PRIV(console)]}
-    $m add radio -label {None (use local slave) } -accel $PRIV(ACC)1 \
+    $m add radio -label {None (use local child) } -accel $PRIV(ACC)1 \
 	    -variable ::tkcon::PRIV(app) \
 	    -value [concat $::tkcon::PRIV(name) $::tkcon::OPT(exec)] \
 	    -command "::tkcon::Attach {}; $cmd"
@@ -1932,10 +1932,10 @@ proc ::tkcon::AttachMenu m {
     $m add command -label "tkcon Interpreters" -state disabled
     foreach i [lsort [array names interps]] {
 	if {$interps($i) eq ""} { set interps($i) "no Tk" }
-	if {[regexp {^Slave[0-9]+} $i]} {
+	if {[regexp {^Child[0-9]+} $i]} {
 	    set opts [list -label "$i ($interps($i))" \
 		    -variable ::tkcon::PRIV(app) -value $i \
-		    -command "::tkcon::Attach [list $i] slave; $cmd"]
+		    -command "::tkcon::Attach [list $i] child; $cmd"]
 	    if {$PRIV(name) eq $i} {
 		append opts " -accel $PRIV(ACC)2"
 	    }
@@ -1945,11 +1945,11 @@ proc ::tkcon::AttachMenu m {
 	    if {$name eq "Main"} {
 		$m add radio -label "$name ($interps($i))" -accel $PRIV(ACC)3 \
 			-variable ::tkcon::PRIV(app) -value Main \
-			-command "::tkcon::Attach [list $name] slave; $cmd"
+			-command "::tkcon::Attach [list $name] child; $cmd"
 	    } else {
 		$m add radio -label "$name ($interps($i))" \
 			-variable ::tkcon::PRIV(app) -value $i \
-			-command "::tkcon::Attach [list $name] slave; $cmd"
+			-command "::tkcon::Attach [list $name] child; $cmd"
 	    }
 	}
     }
@@ -2233,14 +2233,14 @@ proc ::tkcon::fontchooserHandler {font args} {
 
 ## ::tkcon::Attach - called to attach tkcon to an interpreter
 # ARGS:	name	- application name to which tkcon sends commands
-#		  This is either a slave interpreter name or tk appname.
-#	type	- (slave|interp) type of interpreter we're attaching to
-#		  slave means it's a tkcon interpreter
+#		  This is either a child interpreter name or tk appname.
+#	type	- (child|interp) type of interpreter we're attaching to
+#		  child means it's a tkcon interpreter
 #		  interp means we'll need to 'send' to it.
 # Results:	::tkcon::EvalAttached is recreated to evaluate in the
 #		appropriate interpreter
 ##
-proc ::tkcon::Attach {{name <NONE>} {type slave} {ns {}}} {
+proc ::tkcon::Attach {{name <NONE>} {type child} {ns {}}} {
     variable PRIV
     variable OPT
     variable ATTACH
@@ -2273,27 +2273,27 @@ proc ::tkcon::Attach {{name <NONE>} {type slave} {ns {}}} {
 	if {$name eq $path} {
 	    set name {}
 	    set app $path
-	    set type slave
+	    set type child
 	} elseif {[info exists interps($name)]} {
 	    if {$name eq ""} { set name Main; set app Main }
-	    set type slave
+	    set type child
 	} elseif {[interp exists $name]} {
 	    set name [concat $PRIV(name) $name]
-	    set type slave
+	    set type child
 	} elseif {[interp exists [concat $OPT(exec) $name]]} {
 	    set name [concat $path $name]
-	    set type slave
+	    set type child
 	} elseif {[lsearch -exact [::send::interps] $name] > -1} {
-	    if {[EvalSlave info exists tk_library]
-		&& $name eq [EvalSlave tk appname]} {
+	    if {[EvalChild info exists tk_library]
+		&& $name eq [EvalChild tk appname]} {
 		set name {}
 		set app $path
-		set type slave
+		set type child
 	    } elseif {[set i [lsearch -exact \
 		    [Main set ::tkcon::PRIV(interps)] $name]] != -1} {
-		set name [lindex [Main set ::tkcon::PRIV(slaves)] $i]
+		set name [lindex [Main set ::tkcon::PRIV(children)] $i]
 		if {[string match {[Mm]ain} $name]} { set app Main }
-		set type slave
+		set type child
 	    } else {
 		set type interp
 	    }
@@ -2315,23 +2315,23 @@ proc ::tkcon::Attach {{name <NONE>} {type slave} {ns {}}} {
     set PRIV(namesp) ::
     set namespOK 0
     switch -glob -- $type {
-	slave {
+	child {
 	    if {$name eq ""} {
 		interp alias {} ::tkcon::EvalAttached {} \
-			::tkcon::EvalSlave uplevel \#0
+			::tkcon::EvalChild uplevel \#0
 	    } elseif {$PRIV(app) eq "Main"} {
 		interp alias {} ::tkcon::EvalAttached {} ::tkcon::Main
 	    } elseif {$PRIV(name) eq $PRIV(app)} {
 		interp alias {} ::tkcon::EvalAttached {} uplevel \#0
 	    } else {
 		interp alias {} ::tkcon::EvalAttached {} \
-			::tkcon::Slave $::tkcon::PRIV(app)
+			::tkcon::Child $::tkcon::PRIV(app)
 	    }
 	    set namespOK 1
 	}
 	sock* {
 	    interp alias {} ::tkcon::EvalAttached {} \
-		    ::tkcon::EvalSlave uplevel \#0
+		    ::tkcon::EvalChild uplevel \#0
 	    # The file event will just puts whatever data is found
 	    # into the interpreter
 	    fconfigure $name -buffering line -blocking 0
@@ -2340,7 +2340,7 @@ proc ::tkcon::Attach {{name <NONE>} {type slave} {ns {}}} {
 	dpy:* -
 	interp {
 	    if {$OPT(nontcl)} {
-		interp alias {} ::tkcon::EvalAttached {} ::tkcon::EvalSlave
+		interp alias {} ::tkcon::EvalAttached {} ::tkcon::EvalChild
 	    } else {
 		interp alias {} ::tkcon::EvalAttached {} ::tkcon::EvalSend
 		set namespOK 1
@@ -2348,7 +2348,7 @@ proc ::tkcon::Attach {{name <NONE>} {type slave} {ns {}}} {
 	}
 	default {
 	    return -code error "[lindex [info level 0] 0] did not specify\
-		    a valid type: must be slave or interp"
+		    a valid type: must be child or interp"
 	}
     }
     if {$ns ne "" && $namespOK} {
@@ -2501,7 +2501,7 @@ proc ::tkcon::Load { {fn ""} } {
 }
 
 ## ::tkcon::Save - saves the console or other widget buffer to a file
-## This does not eval in a slave because it's not necessary
+## This does not eval in a child because it's not necessary
 # ARGS:	w	- console text widget
 # 	fn	- (optional) filename to save to
 ##
@@ -2560,30 +2560,30 @@ proc ::tkcon::Save { {fn ""} {type ""} {opt ""} {mode w} } {
 
 ## ::tkcon::MainInit
 ## This is only called for the main interpreter to include certain procs
-## that we don't want to include (or rather, just alias) in slave interps.
+## that we don't want to include (or rather, just alias) in child interps.
 ##
 proc ::tkcon::MainInit {} {
     variable PRIV
     variable OPT
 
-    if {![info exists PRIV(slaves)]} {
-	array set PRIV [list slave 0 slaves Main name {} \
+    if {![info exists PRIV(children)]} {
+	array set PRIV [list child 0 children Main name {} \
 		interps [list [tk appname]]]
     }
     interp alias {} ::tkcon::Main {} ::tkcon::InterpEval Main
-    interp alias {} ::tkcon::Slave {} ::tkcon::InterpEval
+    interp alias {} ::tkcon::Child {} ::tkcon::InterpEval
 
-    proc ::tkcon::GetSlave {{slave {}}} {
+    proc ::tkcon::GetChild {{child {}}} {
 	set i 0
-	while {[Slave $slave [list interp exists Slave[incr i]]]} {
+	while {[Child $child [list interp exists Child[incr i]]]} {
 	    # oh my god, an empty loop!
 	}
-	set interp [Slave $slave [list interp create Slave$i]]
+	set interp [Child $child [list interp create Child$i]]
 	return $interp
     }
 
     ## ::tkcon::New - create new console window
-    ## Creates a slave interpreter and sources in this script.
+    ## Creates a child interpreter and sources in this script.
     ## All other interpreters also get a command to eval function in the
     ## new interpreter.
     ##
@@ -2591,10 +2591,10 @@ proc ::tkcon::MainInit {} {
 	variable PRIV
 	global argv0 argc argv
 
-	set tmp [GetSlave]
-	lappend PRIV(slaves) $tmp
+	set tmp [GetChild]
+	lappend PRIV(children) $tmp
 	load {} Tk $tmp
-	# If we have tbcload, then that should be autoloaded into slaves.
+	# If we have tbcload, then that should be autoloaded into children.
 	set idx [lsearch [info loaded] "* Tbcload"]
 	if {$idx != -1} { catch {load {} Tbcload $tmp} }
 	lappend PRIV(interps) [$tmp eval [list tk appname \
@@ -2608,9 +2608,9 @@ proc ::tkcon::MainInit {} {
 	$tmp alias exit				::tkcon::Exit $tmp
 	$tmp alias ::tkcon::Destroy		::tkcon::Destroy $tmp
 	$tmp alias ::tkcon::New			::tkcon::New
-	$tmp alias ::tkcon::GetSlave		::tkcon::GetSlave $tmp
+	$tmp alias ::tkcon::GetChild		::tkcon::GetChild $tmp
 	$tmp alias ::tkcon::Main		::tkcon::InterpEval Main
-	$tmp alias ::tkcon::Slave		::tkcon::InterpEval
+	$tmp alias ::tkcon::Child		::tkcon::InterpEval
 	$tmp alias ::tkcon::Interps		::tkcon::Interps
 	$tmp alias ::tkcon::NewDisplay		::tkcon::NewDisplay
 	$tmp alias ::tkcon::Display		::tkcon::Display
@@ -2622,33 +2622,33 @@ proc ::tkcon::MainInit {} {
 	return $tmp
     }
 
-    ## ::tkcon::Exit - full exit OR destroy slave console
-    ## This proc should only be called in the main interpreter from a slave.
-    ## The master determines whether we do a full exit or just kill the slave.
+    ## ::tkcon::Exit - full exit OR destroy child console
+    ## This proc should only be called in the main interpreter from a child.
+    ## The master determines whether we do a full exit or just kill the child.
     ##
-    proc ::tkcon::Exit {slave args} {
+    proc ::tkcon::Exit {child args} {
 	variable PRIV
 	variable OPT
 
-	## Slave interpreter exit request
-	if {$OPT(slaveexit) eq "exit" || [llength $PRIV(interps)] == 1} {
+	## Child interpreter exit request
+	if {$OPT(childexit) eq "exit" || [llength $PRIV(interps)] == 1} {
 	    ## Only exit if it specifically is stated to do so, or this
 	    ## is the last interp
 	    uplevel 1 exit $args
 	} else {
-	    ## Otherwise we will delete the slave interp and associated data
-	    ::tkcon::Destroy $slave
+	    ## Otherwise we will delete the child interp and associated data
+	    ::tkcon::Destroy $child
 	}
     }
 
     ## ::tkcon::Destroy - destroy console window
     ## This proc should only be called by the main interpreter.  If it is
     ## called from there, it will ask before exiting tkcon.  All others
-    ## (slaves) will just have their slave interpreter deleted, closing them.
+    ## (children) will just have their child interpreter deleted, closing them.
     ##
-    proc ::tkcon::Destroy {{slave {}}} {
+    proc ::tkcon::Destroy {{child {}}} {
 	variable PRIV
-	if {$slave eq ""} {
+	if {$child eq ""} {
 	    set type "application"
 	} else {
 	    set type "window"
@@ -2668,20 +2668,20 @@ proc ::tkcon::MainInit {} {
 	}
 
 	# Just close on the last one
-	if {[llength $PRIV(interps)] == 1 || $slave eq ""} {
+	if {[llength $PRIV(interps)] == 1 || $child eq ""} {
 	    ## Main interpreter close request
 	    exit
-	} elseif {$slave eq $::tkcon::OPT(exec)} {
+	} elseif {$child eq $::tkcon::OPT(exec)} {
 	    set name  [tk appname]
-	    set slave "Main"
+	    set child "Main"
 	} else {
-	    ## Slave interpreter close request
-	    set name [InterpEval $slave]
-	    interp delete $slave
+	    ## Child interpreter close request
+	    set name [InterpEval $child]
+	    interp delete $child
 	}
 	set PRIV(interps) [tkcon_lremove $PRIV(interps) [list $name]]
-	set PRIV(slaves)  [tkcon_lremove $PRIV(slaves) [list $slave]]
-	StateCleanup $slave
+	set PRIV(children)  [tkcon_lremove $PRIV(children) [list $child]]
+	StateCleanup $child
     }
 
     if {$OPT(overrideexit)} {
@@ -2708,14 +2708,14 @@ proc ::tkcon::MainInit {} {
 	    if {[catch {open $::tkcon::PRIV(histfile) w} fid]} {
 		error $fid
 		} else {
-		    set max [::tkcon::EvalSlave history nextid]
+		    set max [::tkcon::EvalChild history nextid]
 		    set id [expr {$max - $::tkcon::OPT(history)}]
 		    if {$id < 1} { set id 1 }
 		    ## FIX: This puts history in backwards!!
 		    while {($id < $max) && ![catch \
-			    {::tkcon::EvalSlave history event $id} cmd]} {
+			    {::tkcon::EvalChild history event $id} cmd]} {
 			if {$cmd ne ""} {
-			    puts $fid "::tkcon::EvalSlave\
+			    puts $fid "::tkcon::EvalChild\
 				    history add [list $cmd]"
 			}
 			incr id
@@ -2727,23 +2727,23 @@ proc ::tkcon::MainInit {} {
 
     ## ::tkcon::InterpEval - passes evaluation to another named interpreter
     ## If the interpreter is named, but no args are given, it returns the
-    ## [tk appname] of that interps master (not the associated eval slave).
+    ## [tk appname] of that interps master (not the associated eval child).
     ##
-    proc ::tkcon::InterpEval {{slave {}} args} {
+    proc ::tkcon::InterpEval {{child {}} args} {
 	variable PRIV
 
 	if {[llength [info level 0]] == 1} {
 	    # no args given
-	    return $PRIV(slaves)
-	} elseif {[string match {[Mm]ain} $slave]} {
-	    set slave {}
+	    return $PRIV(children)
+	} elseif {[string match {[Mm]ain} $child]} {
+	    set child {}
 	}
 	if {[llength $args]} {
-	    return [interp eval $slave uplevel \#0 $args]
+	    return [interp eval $child uplevel \#0 $args]
 	} else {
 	    # beware safe interps with Tk
-	    if {[interp eval $slave {llength [info commands tk]}]} {
-		if {[catch {interp eval $slave tk appname} name]} {
+	    if {[interp eval $child {llength [info commands tk]}]} {
+		if {[catch {interp eval $child tk appname} name]} {
 		    return "safetk"
 		}
 		return $name
@@ -2755,7 +2755,7 @@ proc ::tkcon::MainInit {} {
 	if {$interp eq ""} {
 	    lappend ls {} [tk appname]
 	}
-	foreach i [interp slaves $interp] {
+	foreach i [interp children $interp] {
 	    if {$interp ne ""} { set i "$interp $i" }
 	    if {[interp eval $i package provide Tk] ne ""} {
 		# beware safe interps with Tk
@@ -2993,7 +2993,7 @@ proc ::tkcon::MainInit {} {
 	variable CPS
 
 	if {![llength $args]} {
-	    foreach state [array names CPS slave,*] {
+	    foreach state [array names CPS child,*] {
 		if {![interp exists [string range $state 6 end]]} {
 		    unset CPS($state)
 		}
@@ -3001,8 +3001,8 @@ proc ::tkcon::MainInit {} {
 	} else {
 	    set app  [lindex $args 0]
 	    set type [lindex $args 1]
-	    if {[regexp {^(|slave)$} $type]} {
-		foreach state [array names CPS "slave,$app\[, \]*"] {
+	    if {[regexp {^(|child)$} $type]} {
+		foreach state [array names CPS "child,$app\[, \]*"] {
 		    if {![interp exists [string range $state 6 end]]} {
 			unset CPS($state)
 		    }
@@ -3024,7 +3024,7 @@ proc ::tkcon::Event {int {str {}}} {
     variable PRIV
     set w $PRIV(console)
 
-    set nextid [EvalSlave history nextid]
+    set nextid [EvalChild history nextid]
     if {$str ne ""} {
 	## String is not empty, do an event search
 	set event $PRIV(event)
@@ -3039,7 +3039,7 @@ proc ::tkcon::Event {int {str {}}} {
 		    $w insert limit $PRIV(cmdbuf)
 		    break
 		} elseif {
-		    ![catch {EvalSlave history event $event} res] &&
+		    ![catch {EvalChild history event $event} res] &&
 		    [set p [string first $PRIV(cmdbuf) $res]] > -1
 		} {
 		    set p2 [expr {$p + [string length $PRIV(cmdbuf)]}]
@@ -3052,7 +3052,7 @@ proc ::tkcon::Event {int {str {}}} {
 	    set PRIV(event) $event
 	} else {
 	    ## Search history reverse
-	    while {![catch {EvalSlave history event [incr event -1]} res]} {
+	    while {![catch {EvalChild history event [incr event -1]} res]} {
 		if {[set p [string first $PRIV(cmdbuf) $res]] > -1} {
 		    set p2 [expr {$p + [string length $PRIV(cmdbuf)]}]
 		    $w delete limit end
@@ -3072,7 +3072,7 @@ proc ::tkcon::Event {int {str {}}} {
 		if {[incr PRIV(event)] == $nextid} {
 		    $w insert limit $PRIV(cmdbuf)
 		} else {
-		    $w insert limit [EvalSlave history event $PRIV(event)]
+		    $w insert limit [EvalChild history event $PRIV(event)]
 		}
 	    }
 	} else {
@@ -3080,7 +3080,7 @@ proc ::tkcon::Event {int {str {}}} {
 	    if {$PRIV(event) == $nextid} {
 		set PRIV(cmdbuf) [CmdGet $w]
 	    }
-	    if {[catch {EvalSlave history event [incr PRIV(event) -1]} res]} {
+	    if {[catch {EvalChild history event [incr PRIV(event) -1]} res]} {
 		incr PRIV(event)
 	    } else {
 		$w delete limit end
@@ -3411,9 +3411,9 @@ proc ::tkcon::Expect {cmd} {
     set ::stty_init "-tabs"
     uplevel \#0 [linsert $cmd 0 spawn]
     set EXP(spawn_id) $::spawn_id
-    if {[info exists ::spawn_out(slave,name)]} {
-	set EXP(slave,name) $::spawn_out(slave,name)
-	catch {stty rows $OPT(rows) columns $OPT(cols) < $::spawn_out(slave,name)}
+    if {[info exists ::spawn_out(child,name)]} {
+	set EXP(child,name) $::spawn_out(child,name)
+	catch {stty rows $OPT(rows) columns $OPT(cols) < $::spawn_out(child,name)}
     }
     if {[string index $cmd end] eq "&"} {
 	set cmd expect_background
@@ -3719,7 +3719,7 @@ proc tkcon {cmd args} {
 	    ## 'history'
 	    set sub {\2}
 	    if {[string match -new* $args]} { append sub "\n"}
-	    set h [::tkcon::EvalSlave history]
+	    set h [::tkcon::EvalChild history]
 	    regsub -all "( *\[0-9\]+  |\t)(\[^\n\]*\n?)" $h $sub h
 	    return $h
 	}
@@ -3750,7 +3750,7 @@ proc tkcon {cmd args} {
 	    ##    tkcon set <var> <interp> <var1> <var2> u
 	    ##    tkcon set <var> <interp> <var1> <var2> r
 	    if {[llength $args]==5} {
-		## This is for use w/ 'tkcon upvar' and only works with slaves
+		## This is for use w/ 'tkcon upvar' and only works with children
 		foreach {var i var1 var2 op} $args break
 		if {[string compare {} $var2]} { append var1 "($var2)" }
 		switch $op {
@@ -3808,19 +3808,19 @@ proc tkcon {cmd args} {
 	    }
 	}
 	upv* {
-	    ## 'upvar' masterVar slaveVar
-	    ## link slave variable slaveVar to the master variable masterVar
-	    ## only works masters<->slave
+	    ## 'upvar' masterVar childVar
+	    ## link child variable childVar to the master variable masterVar
+	    ## only works masters<->child
 	    set masterVar [lindex $args 0]
-	    set slaveVar  [lindex $args 1]
+	    set childVar  [lindex $args 1]
 	    if {[info exists $masterVar]} {
 		interp eval $OPT(exec) \
-			[list set $slaveVar [set $masterVar]]
+			[list set $childVar [set $masterVar]]
 	    } else {
-		catch {interp eval $OPT(exec) [list unset $slaveVar]}
+		catch {interp eval $OPT(exec) [list unset $childVar]}
 	    }
 	    interp eval $OPT(exec) \
-		    [list trace add variable $slaveVar rwu \
+		    [list trace add variable $childVar rwu \
 		    [list tkcon set $masterVar $OPT(exec)]]
 	    return
 	}
@@ -3837,7 +3837,7 @@ proc tkcon {cmd args} {
 		return -code error "bad option \"$cmd\": must be\
 			[join [lsort [list attach close console destroy \
 			font hide iconify load main master new save show \
-			slave deiconify version title bgerror exec_cmd]] {, }]"
+			child deiconify version title bgerror exec_cmd]] {, }]"
 	    }
 	}
     }
@@ -4464,7 +4464,7 @@ proc idebug {opt args} {
 	    if {$tkcon} {
 		tkcon master eval set ::tkcon::OPT(prompt2) \$::tkcon::OPT(prompt1)
 		tkcon master eval set ::tkcon::OPT(prompt1) \$::tkcon::OPT(debugPrompt)
-		set slave [tkcon set ::tkcon::OPT(exec)]
+		set child [tkcon set ::tkcon::OPT(exec)]
 		set event [tkcon set ::tkcon::PRIV(event)]
 		tkcon set ::tkcon::OPT(exec) [tkcon master interp create debugger]
 		tkcon set ::tkcon::PRIV(event) 1
@@ -4475,7 +4475,7 @@ proc idebug {opt args} {
 		if {$tkcon} {
 		    # tkcon's overload of gets is advanced enough to not need
 		    # this, but we get a little better control this way.
-		    tkcon evalSlave set level $level
+		    tkcon evalChild set level $level
 		    tkcon prompt
 		    set line [tkcon getcommand]
 		    tkcon console mark set output end
@@ -4542,7 +4542,7 @@ proc idebug {opt args} {
 		}
 		if {$tkcon} {
 		    tkcon set ::tkcon::PRIV(event) \
-			    [tkcon evalSlave eval history add [list $line]\
+			    [tkcon evalChild eval history add [list $line]\
 			    \; history nextid]
 		}
 		if {$c} {
@@ -4555,7 +4555,7 @@ proc idebug {opt args} {
 	    if {$tkcon} {
 		tkcon master interp delete debugger
 		tkcon master eval set ::tkcon::OPT(prompt1) \$::tkcon::OPT(prompt2)
-		tkcon set ::tkcon::OPT(exec) $slave
+		tkcon set ::tkcon::OPT(exec) $child
 		tkcon set ::tkcon::PRIV(event) $event
 		tkcon prompt
 	    }
@@ -5313,7 +5313,7 @@ proc ::tkcon::Bindings {} {
 	<<TkCon_About>>		<F1>
 	<<TkCon_Find>>		<$PRIV(CTRL)F>
 	<<TkCon_Find>>		<$PRIV(CTRL)f>
-	<<TkCon_Slave>>		<$PRIV(CTRL)Key-1>
+	<<TkCon_Child>>		<$PRIV(CTRL)Key-1>
 	<<TkCon_Master>>	<$PRIV(CTRL)Key-2>
 	<<TkCon_Main>>		<$PRIV(CTRL)Key-3>
 	<<TkCon_Expand>>	<Key-Tab>
@@ -5363,7 +5363,7 @@ proc ::tkcon::Bindings {} {
     bind $PRIV(root) <<TkCon_CloseWin>> { ::tkcon::Destroy }
     bind $PRIV(root) <<TkCon_About>>    { ::tkcon::About }
     bind $PRIV(root) <<TkCon_Find>>     { ::tkcon::FindBox $::tkcon::PRIV(console) }
-    bind $PRIV(root) <<TkCon_Slave>>    {
+    bind $PRIV(root) <<TkCon_Child>>    {
 	::tkcon::Attach {}
 	::tkcon::RePrompt "\n" [::tkcon::CmdGet $::tkcon::PRIV(console)]
     }
@@ -6691,7 +6691,7 @@ if {$::tkcon::PRIV(WWW)} {
 proc ::tkcon::Resource {} {
     uplevel \#0 {source $::tkcon::PRIV(SCRIPT)}
     Bindings
-    InitSlave $::tkcon::OPT(exec)
+    InitChild $::tkcon::OPT(exec)
 }
 
 ## Initialize only if we haven't yet, and do other stuff that prepares to
@@ -6706,7 +6706,7 @@ proc ::tkcon::AtSource {} {
 	set PRIV(SCRIPT) [file normalize $PRIV(SCRIPT)]
     }
     # normalize argv0 if it was tkcon to ensure that we'll be able
-    # to load slaves correctly.
+    # to load children correctly.
     if {[info exists ::argv0] && [info script] eq $::argv0} {
 	set ::argv0 $PRIV(SCRIPT)
     }
