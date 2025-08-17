@@ -639,7 +639,6 @@ proc ::tkcon::InitUI {title} {
     }
 
     set PRIV(fontsize) [font configure tkconfixed -size]
-    catch {font create tkconfixed      -family [font configure tkconfixed -family] -size $PRIV(fontsize)}
     catch {font create tkconfixedbold  -family [font configure tkconfixed -family] -size $PRIV(fontsize) -weight bold}
     catch {font create tkconfixedlarge -family [font configure tkconfixed -family] -size [expr {int(1.5 * $PRIV(fontsize))}] -weight bold}
     catch {font create tkconfixedsmall -family [font configure tkconfixed -family] -size [expr {int(0.8 * $PRIV(fontsize))}] -weight bold}
