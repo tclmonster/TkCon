@@ -608,6 +608,105 @@ proc ::tkcon::InitInterp {name type} {
     if {$err ne ""} { return -code error $err }
 }
 
+## ::tkcon::InitFonts - determine best available font for the UI and console.
+## Creates fonts tkconui, tkconfixed, tkconfixedbold, tkconfixedlarge, tkconfixedsmall
+## that should be used throughout the application. This ensures consistency with
+## the available windowing system.
+# ARGS: window - top-level widget containing the console.
+##
+proc ::tkcon::InitFonts {window} {
+    variable PRIV
+    if {[tk windowingsystem] eq "win32"} {
+        # Segoe UI: Vista+ (2007), Tahoma: Windows 2000+, MS Sans Serif: Windows 95+
+        set ui_fonts {
+	    {"Segoe UI"      9}
+	    {"Tahoma"        8}
+	    {"MS Sans Serif" 8}
+	    {"Arial"         9}
+	}
+	# Cascadia Code: 2019+, Consolas: Vista+ (2007), Lucida Console: 1993+
+        set fixed_fonts {
+	    {"Cascadia Code"  11}
+	    {"Consolas"       10}
+	    {"Lucida Console"  9}
+	    {"Courier New"    10}
+	}
+
+    } elseif {[tk windowingsystem] eq "aqua"} {
+	# SF Pro Text: macOS 10.11+ (2015), Lucida Grande: 10.0-10.9 (2001-2013), Geneva: 1984+
+        set ui_fonts {
+	    {"SF Pro Text"   15}
+	    {"Lucida Grande" 13}
+	    {"Geneva"        12}
+	    {"Helvetica"     14}
+	}
+        # SF Mono: macOS 10.11+ (2015), Menlo: 10.6+ (2009), Monaco: 1984+
+        set fixed_fonts {
+	    {"SF Mono" 13}
+	    {"Menlo"   12}
+	    {"Monaco"  11}
+	    {"Courier" 12}
+	}
+
+    } else {
+        # Noto Sans: Modern default (Fedora 36+), DejaVu Sans: Traditional Linux default,
+	# Liberation Sans: Widely available
+        set ui_fonts {
+	    {"Noto Sans"       11}
+	    {"DejaVu Sans"     10}
+	    {"Liberation Sans" 10}
+	    {"Ubuntu"          11}
+	}
+        # Noto Sans Mono: Modern default (Fedora 36+), DejaVu Sans Mono: Traditional Linux default,
+	# Liberation Mono: Widely available
+        set fixed_fonts {
+	    {"Noto Sans Mono"   13}
+	    {"DejaVu Sans Mono" 12}
+	    {"Liberation Mono"  12}
+	    {"Ubuntu Mono"      13}
+	}
+    }
+
+    # Create UI font with fallbacks
+    set created_ui 0
+    foreach font_spec $ui_fonts {
+        lassign $font_spec family size
+        if {[catch {font create tkconui -family $family -size $size}]} {
+            continue
+        } else {
+            set created_ui 1
+            break
+        }
+    }
+    if {!$created_ui} {
+        font create tkconui {*}[font configure TkDefaultFont]
+    }
+
+    # Create fixed-width font with fallbacks
+    set created_fixed 0
+    foreach font_spec $fixed_fonts {
+        lassign $font_spec family size
+        if {[catch {font create tkconfixed -family $family -size $size}]} {
+            continue
+        } else {
+            set created_fixed 1
+            break
+        }
+    }
+    if {!$created_fixed} {
+        font create tkconfixed {*}[font configure TkFixedFont]
+    }
+
+    set fixedsize [font configure tkconfixed -size]
+    set fixedfam  [font configure tkconfixed -family]
+    set PRIV(fontsize) $fixedsize
+    catch {font create tkconfixedbold  -family $fixedfam -size $fixedsize -weight bold}
+    catch {font create tkconfixedlarge -family $fixedfam -size [expr {int(1.5 * $fixedsize)}] -weight bold}
+    catch {font create tkconfixedsmall -family $fixedfam -size [expr {int(0.8 * $fixedsize)}] -weight bold}
+
+    ttk::style configure $window -font tkconui
+}
+
 ## ::tkcon::InitUI - inits UI portion (console) of tkcon
 ## Creates all elements of the console window and sets up the text tags
 # ARGS:	root	- widget pathname of the tkcon console root
@@ -627,23 +726,7 @@ proc ::tkcon::InitUI {title} {
     }
     set PRIV(base) $w
 
-    if {[tk windowingsystem] eq "win32"} {
-        catch {font create tkconui    -family "Segoe UI" -size 10}
-        catch {font create tkconfixed -family "Cascadia Code" -size 10}
-    } elseif {[tk windowingsystem] eq "aqua"} {
-        catch {font create tkconui    -family "SF Pro Text" -size 15}
-        catch {font create tkconfixed -family "SF Mono" -size 13}
-    } else {
-        font create tkconui    {*}[font configure TkTextFont]
-        font create tkconfixed {*}[font configure TkFixedFont]
-    }
-
-    set PRIV(fontsize) [font configure tkconfixed -size]
-    catch {font create tkconfixedbold  -family [font configure tkconfixed -family] -size $PRIV(fontsize) -weight bold}
-    catch {font create tkconfixedlarge -family [font configure tkconfixed -family] -size [expr {int(1.5 * $PRIV(fontsize))}] -weight bold}
-    catch {font create tkconfixedsmall -family [font configure tkconfixed -family] -size [expr {int(0.8 * $PRIV(fontsize))}] -weight bold}
-
-    ttk::style configure .$w -font tkconui
+    InitFonts ".$w"
 
     set PRIV(statusbar) [set sbar [ttk::frame $w.fstatus]]
     set PRIV(tabframe)  [ttk::frame $sbar.tabs -relief sunken -borderwidth 1]
