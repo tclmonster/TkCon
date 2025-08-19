@@ -146,7 +146,7 @@ proc ::tkcon::Init {args} {
 	    ui,normalBg          systemWindowBackgroundColor
             ui,selectedBg        systemTextBackgroundColor
             ui,hoverBg           systemWindowBackgroundColor1
-            ui,selectedHoverBg   systemTextBackgroundColor
+            ui,selectedHoverBg   systemWindowBackgroundColor4
             ui,textColor         systemTextColor
             ui,selectedTextColor systemTextColor
 	} {
@@ -782,19 +782,24 @@ proc ::tkcon::InitUI {title} {
 	variable PRIV
 	variable COLOR
 	set con [set ${name1}($name2)]
-	foreach tabitem [lmap tabcon $PRIV(tabs) { GetConsoleTabName $tabcon }] {
-	    $tabitem configure -background [expr {
-	        $tabitem eq [GetConsoleTabName $con] ? $COLOR(ui,selectedBg) : $COLOR(ui,normalBg)
-	    }]
+	foreach tabcon $PRIV(tabs) {
+	    set uppertab [GetConsoleTabName $tabcon]
+	    set rb   [GetConsoleTabBtnName $tabcon]
+	    set xbtn [GetConsoleCloseBtnName $tabcon]
+	    if {$tabcon eq $con} {
+		$uppertab configure -background $COLOR(ui,selectedBg)
+		$rb   configure -background $COLOR(ui,selectedBg)
+		$xbtn configure -background $COLOR(ui,selectedBg)
+	    } else {
+		$uppertab configure -background $COLOR(ui,normalBg)
+		$rb   configure -background $COLOR(ui,normalBg)
+		$xbtn configure -background $COLOR(ui,normalBg)
+	    }
 	}
+
     } [namespace current]]]
 
     trace add variable PRIV(curtab) write $refreshTabColors
-
-    set PRIV(X) [button $sbar.deltab -text "X" -command ::tkcon::DeleteTab \
-		     -activeforeground red -fg red -font tkconfixedbold \
-		     -highlightthickness 0 -padx 2 -pady 0 -borderwidth 1 \
-		     -state disabled -relief flat -takefocus 0]
 
     ttk::label $sbar.cursor -relief sunken -anchor e -width 6 -textvariable ::tkcon::PRIV(StatusCursor)
 
@@ -802,12 +807,6 @@ proc ::tkcon::InitUI {title} {
 
     grid $sbar.cursor -sticky e -padx $padx
     grid columnconfigure $sbar 0 -weight 1
-
-    if {$PRIV(AQUA)} {
-	# resize control space and correct "X" button space
-	grid columnconfigure $sbar [lindex [grid size $sbar] 0] -minsize 16
-	$PRIV(X) configure -pady 5 -padx 4
-    }
 
     ## Create console tab
     set con [InitTab $w]
@@ -917,6 +916,14 @@ proc ::tkcon::GetConsoleTabName {con} {
     return $PRIV(tabframe).cb[winfo name $con]
 }
 
+proc ::tkcon::GetConsoleTabBtnName {con} {
+    return [GetConsoleTabName $con].selectBtn
+}
+
+proc ::tkcon::GetConsoleCloseBtnName {con} {
+    return [GetConsoleTabName $con].closeBtn
+}
+
 proc ::tkcon::InitTab {w} {
     variable OPT
     variable PRIV
@@ -982,7 +989,10 @@ proc ::tkcon::InitTab {w} {
     $con tag configure find -background $COLOR(blink)
 
     set ATTACH($con) [Attach]
-    set rb [radiobutton [GetConsoleTabName $con] \
+
+    set uppertab [frame [GetConsoleTabName $con]]
+    set rb [radiobutton [GetConsoleTabBtnName $con] \
+		-font tkconui \
 		-borderwidth 0 \
 		-indicatoron 0 \
 		-takefocus 0 \
@@ -990,26 +1000,48 @@ proc ::tkcon::InitTab {w} {
 		-variable ::tkcon::PRIV(curtab) -value $con \
 		-command [list ::tkcon::GotoTab $con]]
 
-    bind $rb <Enter> +[namespace code {
-	variable COLOR
-	variable PRIV
-	if {"%W" eq [GetConsoleTabName $PRIV(console)]} {
-	    return
+    set xbtn [label [GetConsoleCloseBtnName $con] -text "×" -font tkconui]
+    bind $xbtn <ButtonRelease-1> [list ::apply {{con} {
+	if {[winfo containing {*}[winfo pointerxy .]] eq "%W"} {
+	    ::tkcon::DeleteTab $con
 	}
-	%W configure -background $COLOR(ui,hoverBg)
+    }} $con]
+
+    grid $xbtn $rb -sticky nsew
+    grid columnconfigure $uppertab 1 -weight 1
+
+    bind $xbtn <Enter> +[namespace code {
+	variable COLOR
+	event generate [winfo parent %W] <Enter>
+	%W configure -background $COLOR(ui,selectedHoverBg)
     }]
 
-    bind $rb <Leave> +[namespace code {
+    bind $xbtn <Leave> +[namespace code {
+	%W configure -background [[winfo parent %W] cget -background]
+    }]
+
+    bind $uppertab <Enter> +[namespace code {
 	variable COLOR
 	variable PRIV
-	if {"%W" eq [GetConsoleTabName $PRIV(console)]} {
-	    return
+	if {"%W" ne [GetConsoleTabName $PRIV(console)]} {
+	    %W configure -background $COLOR(ui,hoverBg)
 	}
-	%W configure -background $COLOR(ui,normalBg)
+	%W.selectBtn configure -background [%W cget -background]
+	%W.closeBtn  configure -background [%W cget -background]
+    }]
+
+    bind $uppertab <Leave> +[namespace code {
+	variable COLOR
+	variable PRIV
+	if {"%W" ne [GetConsoleTabName $PRIV(console)]} {
+	    %W configure -background $COLOR(ui,normalBg)
+	}
+	%W.selectBtn configure -background [%W cget -background]
+	%W.closeBtn  configure -background [%W cget -background]
     }]
 
     # Pack will ensure proper reflow when tabs are removed
-    pack $rb -side left -fill both -expand 1
+    pack $uppertab -side left -fill both -expand 1
     grid $con -row 1 -column 1 -sticky news
 
     lappend PRIV(tabs) $con
@@ -1075,7 +1107,6 @@ proc ::tkcon::NewTab {{con {}}} {
     } else {
 	set ATTACH($con) [list $child child]
     }
-    $PRIV(X) configure -state normal
     MenuConfigure Console "Close Tab" -state normal
     GotoTab $con
 }
@@ -1086,7 +1117,6 @@ proc ::tkcon::DeleteTab {{con {}} {child {}} {code 0}} {
 
     set numtabs [llength $PRIV(tabs)]
     if {$numtabs <= 2} {
-	$PRIV(X) configure -state disabled
 	MenuConfigure Console "Close Tab" -state disabled
     }
     if {$numtabs == 1} {
