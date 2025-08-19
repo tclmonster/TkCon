@@ -84,6 +84,7 @@ namespace eval ::tkcon {
     variable PRIV
     set PRIV(WWW)	[info exists embed_args]
     set PRIV(AQUA)	[expr {[tk windowingsystem] eq "aqua"}]
+    set PRIV(WIN32)     [expr {[tk windowingsystem] eq "win32"}]
     set PRIV(CTRL)	[expr {$PRIV(AQUA) ? "Command-" : "Control-"}]
     set PRIV(ACC)	[expr {$PRIV(AQUA) ? "Command-" : "Ctrl+"}]
     set PRIV(MOD)	[expr {$PRIV(AQUA) ? "Shift-" : "Shift+"}]
@@ -126,6 +127,43 @@ proc ::tkcon::Init {args} {
 	stderr		\#FF0000
     } {
 	if {![info exists COLOR($key)]} { set COLOR($key) $default }
+    }
+
+    if {$PRIV(WIN32)} {
+	foreach {key default} {
+	    ui,normalBg          systemButtonFace
+            ui,selectedBg        system3dLight
+            ui,hoverBg           systemButtonShadow
+            ui,selectedHoverBg   systemHighlight
+            ui,textColor         systemButtonText
+            ui,selectedTextColor systemHighlightText
+	} {
+	    if {![info exists COLOR($key)]} { set COLOR($key) $default }
+	}
+
+    } elseif {$PRIV(AQUA)} {
+	foreach {key default} {
+	    ui,normalBg          systemWindowBackgroundColor
+            ui,selectedBg        systemTextBackgroundColor
+            ui,hoverBg           systemWindowBackgroundColor1
+            ui,selectedHoverBg   systemTextBackgroundColor
+            ui,textColor         systemTextColor
+            ui,selectedTextColor systemTextColor
+	} {
+	    if {![info exists COLOR($key)]} { set COLOR($key) $default }
+	}
+
+    } else {
+	foreach {key default} {
+	    ui,normalBg          \#d0d0d0
+            ui,selectedBg        \#f0f0f0
+            ui,hoverBg           \#b0b0b0
+            ui,selectedHoverBg   \#e8e8e8
+            ui,textColor          black
+            ui,selectedTextColor  black
+	} {
+	    if {![info exists COLOR($key)]} { set COLOR($key) $default }
+	}
     }
 
     foreach {key default} {
@@ -707,6 +745,14 @@ proc ::tkcon::InitFonts {window} {
     ttk::style configure $window -font tkconui
 }
 
+## ::tkcon::InitStyles - adds several styles used by the tkcon UI.
+# ARGS: window - top-level widget containing the console.
+##
+proc ::tkcon::InitStyles {window} {
+    variable COLOR
+    # Placeholder for future styles and layouts
+}
+
 ## ::tkcon::InitUI - inits UI portion (console) of tkcon
 ## Creates all elements of the console window and sets up the text tags
 # ARGS:	root	- widget pathname of the tkcon console root
@@ -727,24 +773,36 @@ proc ::tkcon::InitUI {title} {
     set PRIV(base) $w
 
     InitFonts ".$w"
+    InitStyles ".$w"
 
     set PRIV(statusbar) [set sbar [ttk::frame $w.fstatus]]
-    set PRIV(tabframe)  [ttk::frame $sbar.tabs -relief sunken -borderwidth 1]
+    set PRIV(tabframe)  [set tabs [ttk::frame $w.tabs]]
+
+    set refreshTabColors [list ::apply [list {name1 name2 op} {
+	variable PRIV
+	variable COLOR
+	set con [set ${name1}($name2)]
+	foreach tabitem [lmap tabcon $PRIV(tabs) { GetConsoleTabName $tabcon }] {
+	    $tabitem configure -background [expr {
+	        $tabitem eq [GetConsoleTabName $con] ? $COLOR(ui,selectedBg) : $COLOR(ui,normalBg)
+	    }]
+	}
+    } [namespace current]]]
+
+    trace add variable PRIV(curtab) write $refreshTabColors
+
     set PRIV(X) [button $sbar.deltab -text "X" -command ::tkcon::DeleteTab \
 		     -activeforeground red -fg red -font tkconfixedbold \
 		     -highlightthickness 0 -padx 2 -pady 0 -borderwidth 1 \
 		     -state disabled -relief flat -takefocus 0]
-    catch {$PRIV(X) configure -overrelief raised}
-    ttk::label $sbar.cursor -relief sunken -anchor e -width 6 \
-	    -textvariable ::tkcon::PRIV(StatusCursor)
-    set padx [expr {![info exists ::tcl_platform(os)]
-		    || ($::tcl_platform(os) ne "Windows CE")}]
-    grid $PRIV(X) $PRIV(tabframe) $sbar.cursor -sticky news -padx $padx
-    grid configure $PRIV(tabframe) -sticky nsw
-    grid configure $PRIV(X) -pady 0 -padx 0
-    grid columnconfigure $sbar 1 -weight 1
-    grid rowconfigure $sbar 0 -weight 1
-    grid rowconfigure $PRIV(tabframe) 0 -weight 1
+
+    ttk::label $sbar.cursor -relief sunken -anchor e -width 6 -textvariable ::tkcon::PRIV(StatusCursor)
+
+    set padx [expr {![info exists ::tcl_platform(os)] || ($::tcl_platform(os) ne "Windows CE")}]
+
+    grid $sbar.cursor -sticky e -padx $padx
+    grid columnconfigure $sbar 0 -weight 1
+
     if {$PRIV(AQUA)} {
 	# resize control space and correct "X" button space
 	grid columnconfigure $sbar [lindex [grid size $sbar] 0] -minsize 16
@@ -794,6 +852,7 @@ proc ::tkcon::InitUI {title} {
     grid $con  -row 1 -column 1 -sticky news
     grid $sy   -row 1 -column [expr {($OPT(scrollypos) eq "left") ? 0 : 2}] -sticky ns
     grid $sbar -row 2 -column 0 -columnspan 3 -sticky ew
+    grid $tabs -row 0 -column 0 -columnspan 3 -sticky ew
 
     grid columnconfigure $root 1 -weight 1
     grid rowconfigure    $root 1 -weight 1
@@ -851,6 +910,11 @@ proc ::tkcon::locate_xdg_icon {name} {
         }
     }
     return ""
+}
+
+proc ::tkcon::GetConsoleTabName {con} {
+    variable PRIV
+    return $PRIV(tabframe).cb[winfo name $con]
 }
 
 proc ::tkcon::InitTab {w} {
@@ -918,11 +982,34 @@ proc ::tkcon::InitTab {w} {
     $con tag configure find -background $COLOR(blink)
 
     set ATTACH($con) [Attach]
-    set rb [ttk::radiobutton $PRIV(tabframe).cb[winfo name $con] -takefocus 0 \
+    set rb [radiobutton [GetConsoleTabName $con] \
+		-borderwidth 0 \
+		-indicatoron 0 \
+		-takefocus 0 \
 		-textvariable ::tkcon::ATTACH($con) \
 		-variable ::tkcon::PRIV(curtab) -value $con \
 		-command [list ::tkcon::GotoTab $con]]
-    grid $rb -row 0 -column [lindex [grid size $PRIV(tabframe)] 0] -sticky ns
+
+    bind $rb <Enter> +[namespace code {
+	variable COLOR
+	variable PRIV
+	if {"%W" eq [GetConsoleTabName $PRIV(console)]} {
+	    return
+	}
+	%W configure -background $COLOR(ui,hoverBg)
+    }]
+
+    bind $rb <Leave> +[namespace code {
+	variable COLOR
+	variable PRIV
+	if {"%W" eq [GetConsoleTabName $PRIV(console)]} {
+	    return
+	}
+	%W configure -background $COLOR(ui,normalBg)
+    }]
+
+    # Pack will ensure proper reflow when tabs are removed
+    pack $rb -side left -fill both -expand 1
     grid $con -row 1 -column 1 -sticky news
 
     lappend PRIV(tabs) $con
@@ -970,7 +1057,6 @@ proc ::tkcon::GotoTab {con} {
 	Prompt
     }
 
-    # set StatusCursor
     set PRIV(StatusCursor) [$con index insert]
 
     focus -force $con
@@ -1029,7 +1115,9 @@ proc ::tkcon::DeleteTab {{con {}} {child {}} {code 0}} {
     if {$child ne "" && $child ne $::tkcon::OPT(exec)} {
 	interp delete $child
     }
-    destroy $PRIV(tabframe).cb[winfo name $con]
+    set tabmenuitem [GetConsoleTabName $con]
+    pack forget $tabmenuitem
+    destroy $tabmenuitem
     destroy $con
 }
 
