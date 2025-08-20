@@ -51,7 +51,7 @@
 #    tkcon master set ::tkcon:PRIV(proxy) wwwproxy:8080
 #
 
-package require Tk 8.5-
+package require Tk 8.6-
 
 # We need to load some package to get what's available, and we
 # choose ctext because we'll use it if it's available in the editor
@@ -88,8 +88,141 @@ namespace eval ::tkcon {
     set PRIV(CTRL)	[expr {$PRIV(AQUA) ? "Command-" : "Control-"}]
     set PRIV(ACC)	[expr {$PRIV(AQUA) ? "Command-" : "Ctrl+"}]
     set PRIV(MOD)	[expr {$PRIV(AQUA) ? "Shift-" : "Shift+"}]
+    set PRIV(console) ""
+    set PRIV(nexttabbutton) 0
 
     variable EXPECT 0
+}
+
+oo::class create ::tkcon::Widget {
+    variable Path
+    constructor {path} {
+	rename ::$path [self namespace]::$path
+	interp alias {} ::$path {} [self]
+	bind $path <Destroy> [list [self] destroy]
+	set Path $path
+    }
+    destructor {
+	if {[winfo exists $Path]} {
+	    destroy $Path
+	}
+    }
+    method unknown {subcmd args} {
+	[self namespace]::$Path $subcmd {*}$args
+    }
+}
+
+oo::class create ::tkcon::TabButton {
+    superclass ::tkcon::Widget
+    variable Console
+    variable Container
+    variable Content
+    variable CloseButton
+
+    method container   {} { return $Container }
+    method content     {} { return $Content }
+    method closebutton {} { return $CloseButton }
+    method console     {} { return $Console }
+
+    method selected {} {
+	namespace upvar ::tkcon PRIV PRIV
+	expr {$Console eq $PRIV(console)}
+    }
+
+    constructor {con} {
+	namespace upvar ::tkcon PRIV PRIV
+	set Console $con
+	set Container   "$PRIV(tabframe).cb[winfo name $con]"
+	set Content     "$Container.selectBtn"
+	set CloseButton "$Container.closeBtn"
+
+	frame $Container
+
+	set tabname "Console [incr PRIV(nexttabname)]"
+	radiobutton $Content -font tkconui -borderwidth 0 -indicatoron 0 -takefocus 0 \
+	    -text $tabname -command [list ::tkcon::GotoTab $con]
+
+	label $CloseButton -text "×" -font tkconui
+
+	grid $CloseButton $Content -sticky nsew
+	grid columnconfigure $Container 1 -weight 1
+
+	bind $CloseButton <ButtonRelease-1> [list [self] onReleaseCloseButton]
+	bind $CloseButton <Enter> +[list [self] onEnterCloseButton]
+	bind $CloseButton <Leave> +[list [self] onLeaveCloseButton]
+
+	bind $Container <Enter> +[list [self] onEnterContainer]
+	bind $Container <Leave> +[list [self] onLeaveContainer]
+
+	next $Container
+    }
+
+    method refreshTabColors {} {
+	namespace upvar ::tkcon COLOR COLOR
+	if {[my selected]} {
+	    $Container configure -background $COLOR(ui,selectedBg)
+	} else {
+	    $Container configure -background $COLOR(ui,normalBg)
+	}
+	$Content configure -background [$Container cget -background]
+	$CloseButton configure -background [$Container cget -background]
+    }
+
+    method onLeaveContainer {} {
+	namespace upvar ::tkcon COLOR COLOR
+	if {! [my selected]} {
+	    $Container configure -background $COLOR(ui,normalBg)
+	}
+	$Content configure -background [$Container cget -background]
+	$CloseButton configure -background [$Container cget -background]
+    }
+
+    method onReleaseCloseButton {} {
+	if {[winfo containing {*}[winfo pointerxy .]] eq $CloseButton} {
+	    ::tkcon::DeleteTab $Console
+	}
+    }
+
+    method onEnterCloseButton {} {
+	namespace upvar ::tkcon COLOR COLOR
+	event generate $Container <Enter>
+	$CloseButton configure -background $COLOR(ui,selectedHoverBg)
+    }
+
+    method onLeaveCloseButton {} {
+	$CloseButton configure -background [$Container cget -background]
+    }
+
+    method onEnterContainer {} {
+	namespace upvar ::tkcon COLOR COLOR
+	if {! [my selected]} {
+	    $Container configure -background $COLOR(ui,hoverBg)
+	}
+	$Content configure -background [$Container cget -background]
+	$CloseButton configure -background [$Container cget -background]
+    }
+}
+
+proc ::tkcon::tabbutton {con} {
+    set obj [TabButton new $con]
+    return [$obj container]
+}
+
+proc ::tkcon::TabButtonFromConsole {console} {
+    set container ""
+    foreach instance [info class instances ::tkcon::TabButton] {
+	if {[$instance console] eq $console} {
+	    set container [$instance container]
+	    break
+	}
+    }
+    return $container
+}
+
+proc ::tkcon::RefreshAllTabColors {} {
+    foreach instance [info class instances ::tkcon::TabButton] {
+	$instance refreshTabColors
+    }
 }
 
 ## ::tkcon::Init - inits tkcon
@@ -778,29 +911,6 @@ proc ::tkcon::InitUI {title} {
     set PRIV(statusbar) [set sbar [ttk::frame $w.fstatus]]
     set PRIV(tabframe)  [set tabs [ttk::frame $w.tabs]]
 
-    set refreshTabColors [list ::apply [list {name1 name2 op} {
-	variable PRIV
-	variable COLOR
-	set con [set ${name1}($name2)]
-	foreach tabcon $PRIV(tabs) {
-	    set uppertab [GetConsoleTabName $tabcon]
-	    set rb   [GetConsoleTabBtnName $tabcon]
-	    set xbtn [GetConsoleCloseBtnName $tabcon]
-	    if {$tabcon eq $con} {
-		$uppertab configure -background $COLOR(ui,selectedBg)
-		$rb   configure -background $COLOR(ui,selectedBg)
-		$xbtn configure -background $COLOR(ui,selectedBg)
-	    } else {
-		$uppertab configure -background $COLOR(ui,normalBg)
-		$rb   configure -background $COLOR(ui,normalBg)
-		$xbtn configure -background $COLOR(ui,normalBg)
-	    }
-	}
-
-    } [namespace current]]]
-
-    trace add variable PRIV(curtab) write $refreshTabColors
-
     ttk::label $sbar.cursor -relief sunken -anchor e -width 6 -textvariable ::tkcon::PRIV(StatusCursor)
 
     set padx [expr {![info exists ::tcl_platform(os)] || ($::tcl_platform(os) ne "Windows CE")}]
@@ -811,6 +921,9 @@ proc ::tkcon::InitUI {title} {
     ## Create console tab
     set con [InitTab $w]
     set PRIV(curtab) $con
+
+    set refreshtabcolors [list ::apply {{name1 name2 op} { ::tkcon::RefreshAllTabColors }}]
+    trace add variable ::tkcon::PRIV(curtab) write $refreshtabcolors
 
     # Only apply this for the first console
     $con configure -setgrid 1 -width $OPT(cols) -height $OPT(rows)
@@ -881,6 +994,8 @@ proc ::tkcon::InitUI {title} {
     if {$OPT(gc-delay)} {
 	after $OPT(gc-delay) ::tkcon::GarbageCollect
     }
+
+    RefreshAllTabColors
 }
 
 # Hunt around the XDG defined directories for the icon.
@@ -909,19 +1024,6 @@ proc ::tkcon::locate_xdg_icon {name} {
         }
     }
     return ""
-}
-
-proc ::tkcon::GetConsoleTabName {con} {
-    variable PRIV
-    return $PRIV(tabframe).cb[winfo name $con]
-}
-
-proc ::tkcon::GetConsoleTabBtnName {con} {
-    return [GetConsoleTabName $con].selectBtn
-}
-
-proc ::tkcon::GetConsoleCloseBtnName {con} {
-    return [GetConsoleTabName $con].closeBtn
 }
 
 proc ::tkcon::InitTab {w} {
@@ -990,58 +1092,10 @@ proc ::tkcon::InitTab {w} {
 
     set ATTACH($con) [Attach]
 
-    set uppertab [frame [GetConsoleTabName $con]]
-    set rb [radiobutton [GetConsoleTabBtnName $con] \
-		-font tkconui \
-		-borderwidth 0 \
-		-indicatoron 0 \
-		-takefocus 0 \
-		-textvariable ::tkcon::ATTACH($con) \
-		-variable ::tkcon::PRIV(curtab) -value $con \
-		-command [list ::tkcon::GotoTab $con]]
-
-    set xbtn [label [GetConsoleCloseBtnName $con] -text "×" -font tkconui]
-    bind $xbtn <ButtonRelease-1> [list ::apply {{con} {
-	if {[winfo containing {*}[winfo pointerxy .]] eq "%W"} {
-	    ::tkcon::DeleteTab $con
-	}
-    }} $con]
-
-    grid $xbtn $rb -sticky nsew
-    grid columnconfigure $uppertab 1 -weight 1
-
-    bind $xbtn <Enter> +[namespace code {
-	variable COLOR
-	event generate [winfo parent %W] <Enter>
-	%W configure -background $COLOR(ui,selectedHoverBg)
-    }]
-
-    bind $xbtn <Leave> +[namespace code {
-	%W configure -background [[winfo parent %W] cget -background]
-    }]
-
-    bind $uppertab <Enter> +[namespace code {
-	variable COLOR
-	variable PRIV
-	if {"%W" ne [GetConsoleTabName $PRIV(console)]} {
-	    %W configure -background $COLOR(ui,hoverBg)
-	}
-	%W.selectBtn configure -background [%W cget -background]
-	%W.closeBtn  configure -background [%W cget -background]
-    }]
-
-    bind $uppertab <Leave> +[namespace code {
-	variable COLOR
-	variable PRIV
-	if {"%W" ne [GetConsoleTabName $PRIV(console)]} {
-	    %W configure -background $COLOR(ui,normalBg)
-	}
-	%W.selectBtn configure -background [%W cget -background]
-	%W.closeBtn  configure -background [%W cget -background]
-    }]
+    set tabbutton [tabbutton $con]
 
     # Pack will ensure proper reflow when tabs are removed
-    pack $uppertab -side left -fill both -expand 1
+    pack $tabbutton -side left -fill both -expand 1
     grid $con -row 1 -column 1 -sticky news
 
     lappend PRIV(tabs) $con
@@ -1145,9 +1199,8 @@ proc ::tkcon::DeleteTab {{con {}} {child {}} {code 0}} {
     if {$child ne "" && $child ne $::tkcon::OPT(exec)} {
 	interp delete $child
     }
-    set tabmenuitem [GetConsoleTabName $con]
-    pack forget $tabmenuitem
-    destroy $tabmenuitem
+    set tabbutton [TabButtonFromConsole $con]
+    destroy $tabbutton
     destroy $con
 }
 
