@@ -139,7 +139,7 @@ oo::class create ::tkcon::TabButton {
 	frame $Container
 
 	set tabname "Console [incr PRIV(nexttabname)]"
-	radiobutton $Content -font tkconui -borderwidth 0 -indicatoron 0 -takefocus 0 \
+	radiobutton $Content -font tkconuismall -borderwidth 0 -indicatoron 0 -takefocus 0 \
 	    -text $tabname -command [list ::tkcon::GotoTab $con]
 
 	label $CloseButton -text "×" -font tkconui
@@ -874,6 +874,11 @@ proc ::tkcon::InitFonts {window} {
     catch {font create tkconfixedbold  -family $fixedfam -size $fixedsize -weight bold}
     catch {font create tkconfixedlarge -family $fixedfam -size [expr {int(1.5 * $fixedsize)}] -weight bold}
     catch {font create tkconfixedsmall -family $fixedfam -size [expr {int(0.8 * $fixedsize)}] -weight bold}
+
+    set uisize [font configure tkconui -size]
+    set uifam  [font configure tkconui -family]
+    catch {font create tkconuilarge -family $uifam -size [expr {int(1.5 * $uisize)}]}
+    catch {font create tkconuismall -family $uifam -size [expr {int(0.8 * $uisize)}]}
 
     ttk::style configure $window -font tkconui
 }
