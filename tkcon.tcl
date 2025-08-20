@@ -969,7 +969,7 @@ proc ::tkcon::InitUI {title} {
     grid $con  -row 1 -column 1 -sticky news
     grid $sy   -row 1 -column [expr {($OPT(scrollypos) eq "left") ? 0 : 2}] -sticky ns
     grid $sbar -row 2 -column 0 -columnspan 3 -sticky ew
-    grid $tabs -row 0 -column 0 -columnspan 3 -sticky ew
+    # Note: tabs doesn't get gridded until more than one tab present
 
     grid columnconfigure $root 1 -weight 1
     grid rowconfigure    $root 1 -weight 1
@@ -1104,6 +1104,10 @@ proc ::tkcon::InitTab {w} {
     grid $con -row 1 -column 1 -sticky news
 
     lappend PRIV(tabs) $con
+
+    if {[llength $PRIV(tabs)] > 1} {
+	grid $PRIV(tabframe) -row 0 -column 0 -columnspan 3 -sticky ew
+    }
     return $con
 }
 
@@ -1176,6 +1180,7 @@ proc ::tkcon::DeleteTab {{con {}} {child {}} {code 0}} {
 
     set numtabs [llength $PRIV(tabs)]
     if {$numtabs <= 2} {
+	grid forget $PRIV(tabframe) ;# Only show tab bar when multiple tabs present
 	MenuConfigure Console "Close Tab" -state disabled
     }
     if {$numtabs == 1} {
@@ -1804,13 +1809,13 @@ proc ::tkcon::InitMenus {w title} {
     foreach m [list [menu $w.console -disabledfore $COLOR(disabled)] \
 	    [menu $w.pop.console -disabledfore $COLOR(disabled)]] {
 	$m add command -label "$title Console"	-state disabled
-	$m add command -label "New Console" -underline 0 -accel $PRIV(ACC)$PRIV(MOD)N \
+	$m add command -label "New Window" -underline 0 -accel $PRIV(ACC)$PRIV(MOD)N \
 		-command ::tkcon::New
 	$m add command -label "New Tab" -underline 4 -accel $PRIV(ACC)$PRIV(MOD)T \
 		-command ::tkcon::NewTab
 	$m add command -label "Close Tab" -underline 0 -accel $PRIV(ACC)W \
 		-command ::tkcon::DeleteTab -state disabled
-	$m add command -label "Close Console" -underline 0 -accel $PRIV(ACC)$PRIV(MOD)W \
+	$m add command -label "Close Window" -underline 0 -accel $PRIV(ACC)$PRIV(MOD)W \
 		-command ::tkcon::Destroy
 	$m add command -label "Clear Console" -underline 1 -accel $PRIV(ACC)L \
 		-command { tkcon_clear; ::tkcon::Prompt }
