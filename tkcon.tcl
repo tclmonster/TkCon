@@ -271,7 +271,6 @@ proc ::tkcon::Init {args} {
 	proc		\#008800
 	var		\#FFC0D0
 	prompt		\#8F4433
-	stdin		\#000000
 	stdout		\#0000FF
 	stderr		\#FF0000
     } {
@@ -314,6 +313,8 @@ proc ::tkcon::Init {args} {
 	    if {![info exists COLOR($key)]} { set COLOR($key) $default }
 	}
     }
+
+    set COLOR(stdin) [expr {[info exists COLOR(stdin)] ? $COLOR(stdin) : $COLOR(ui,textColor)}]
 
     foreach {key default} {
 	autoload	{}
