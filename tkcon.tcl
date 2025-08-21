@@ -225,6 +225,22 @@ proc ::tkcon::RefreshAllTabColors {} {
     }
 }
 
+proc ::tkcon::CalcRowsFromCols {cols} {
+    # Ensure the console defaults to an aspect ratio harmonious with
+    # screen proportions.
+
+    set char_width  [font measure tkconfixed "0"]
+    set char_height [font metrics tkconfixed -linespace]
+    set char_aspect [expr {double($char_height) / $char_width}]
+
+    set screen_width  [winfo screenwidth .]
+    set screen_height [winfo screenheight .]
+    set screen_aspect [expr {double($screen_height) / $screen_width}]
+
+    set rows [expr {int($cols * $screen_aspect / $char_aspect)}]
+    return $rows
+}
+
 ## ::tkcon::Init - inits tkcon
 #
 # Calls:	::tkcon::InitUI
@@ -306,7 +322,6 @@ proc ::tkcon::Init {args} {
 	buffer		2048
 	maxlinelen	0
 	calcmode	0
-	cols		100
 	confirmExit	1
 	debugPrompt	{(level \#$level) debug [history nextid] > }
 	dead		{}
@@ -322,7 +337,6 @@ proc ::tkcon::Init {args} {
 	maxmenu		18
 	nontcl		0
 	prompt1		{ignore this, it's set below}
-	rows		50
 	scrollypos	right
 	showmenu	1
 	showmultiple	1
@@ -342,6 +356,9 @@ proc ::tkcon::Init {args} {
     } {
 	if {![info exists OPT($key)]} { set OPT($key) $default }
     }
+
+    set OPT(cols) [expr {[info exists OPT(cols)] ? $OPT(cols) : 100}]
+    set OPT(rows) [expr {[info exists OPT(rows)] ? $OPT(rows) : [CalcRowsFromCols $OPT(cols)]}]
 
     foreach {key default} {
 	app		{}
@@ -999,8 +1016,6 @@ proc ::tkcon::InitUI {title} {
     if {$OPT(gc-delay)} {
 	after $OPT(gc-delay) ::tkcon::GarbageCollect
     }
-
-    RefreshAllTabColors
 }
 
 # Hunt around the XDG defined directories for the icon.
