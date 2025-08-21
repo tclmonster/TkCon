@@ -165,7 +165,7 @@ oo::class create ::tkcon::TabButton {
 	next $Container
     }
 
-    method refreshTabColors {} {
+    method refreshColors {} {
 	namespace upvar ::tkcon COLOR COLOR
 	if {[my selected]} {
 	    $Container configure -background $COLOR(ui,selectedBg)
@@ -227,9 +227,9 @@ proc ::tkcon::TabButtonFromConsole {console} {
     return $container
 }
 
-proc ::tkcon::RefreshAllTabColors {} {
+proc ::tkcon::RefreshAllTabButtons {} {
     foreach instance [info class instances ::tkcon::TabButton] {
-	$instance refreshTabColors
+	$instance refreshColors
     }
 }
 
@@ -953,11 +953,12 @@ proc ::tkcon::InitUI {title} {
     set con [InitTab $w]
     set PRIV(curtab) $con
 
-    set refreshtabcolors [list ::apply {{name1 name2 op} { ::tkcon::RefreshAllTabColors }}]
+    set refreshtabcolors [list ::apply {{name1 name2 op} { ::tkcon::RefreshAllTabButtons }}]
     trace add variable ::tkcon::PRIV(curtab) write $refreshtabcolors
 
-    # Only apply this for the first console
+    # Only one console at a time should have -setgrid enabled
     $con configure -setgrid 1 -width $OPT(cols) -height $OPT(rows)
+
     bind $PRIV(root) <Configure> {
 	if {"%W" eq $::tkcon::PRIV(root)} {
 	    scan [wm geometry [winfo toplevel %W]] "%%dx%%d" \
@@ -1227,7 +1228,10 @@ proc ::tkcon::DeleteTab {{con {}} {child {}} {code 0}} {
 	set nexttab end
     }
     set nexttab [lindex $PRIV(tabs) $nexttab]
-
+    if {[$con cget -setgrid]} {
+	$con configure -setgrid 0
+	$nexttab configure -setgrid 1  ;# Ensure geometry remains properly managed
+    }
     GotoTab $nexttab
 
     if {$child ne "" && $child ne $::tkcon::OPT(exec)} {
