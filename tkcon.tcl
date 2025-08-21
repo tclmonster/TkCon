@@ -144,7 +144,15 @@ oo::class create ::tkcon::TabButton {
 
 	label $CloseButton -text "×" -font tkconui
 
-	grid $CloseButton $Content -sticky nsew
+	# Force the close button to a square
+	set current_width  [winfo reqwidth $CloseButton]
+	set current_height [winfo reqheight $CloseButton]
+	set target_size [expr {max($current_width, $current_height)}]
+	set ipad_x [expr {($target_size - $current_width) / 2}]
+	set ipad_y [expr {($target_size - $current_height) / 2}]
+
+	grid $CloseButton -row 0 -column 0 -ipadx $ipad_x -ipady $ipad_y
+	grid $Content     -row 0 -column 1 -sticky nsew
 	grid columnconfigure $Container 1 -weight 1
 
 	bind $CloseButton <ButtonRelease-1> [list [self] onReleaseCloseButton]
