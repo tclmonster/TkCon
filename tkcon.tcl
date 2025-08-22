@@ -151,9 +151,12 @@ oo::class create ::tkcon::TabButton {
 	set ipad_x [expr {($target_size - $current_width) / 2}]
 	set ipad_y [expr {($target_size - $current_height) / 2}]
 
+	set separator [ttk::separator $Container.sep]
 	grid $CloseButton -row 0 -column 0 -ipadx $ipad_x -ipady $ipad_y
 	grid $Content     -row 0 -column 1 -sticky nsew
+	grid $separator   -row 0 -column 2 -sticky ns
 	grid columnconfigure $Container 1 -weight 1
+	grid rowconfigure    $Container 0 -weight 1
 
 	bind $CloseButton <ButtonRelease-1> [list [self] onReleaseCloseButton]
 	bind $CloseButton <Enter> +[list [self] onEnterCloseButton]
@@ -299,25 +302,25 @@ proc ::tkcon::Init {args} {
 
     } elseif {$PRIV(AQUA)} {
 	foreach {key default} {
-	    ui,normalBg          systemWindowBackgroundColor
-            ui,selectedBg        systemTextBackgroundColor
-            ui,hoverBg           systemWindowBackgroundColor1
-            ui,selectedHoverBg   systemWindowBackgroundColor4
+            ui,normalBg          systemWindowBackgroundColor2
+            ui,selectedBg        systemWindowBackgroundColor
+            ui,hoverBg           systemWindowBackgroundColor4
+            ui,selectedHoverBg   systemWindowBackgroundColor6
             ui,textColor         systemTextColor
-            ui,selectedTextColor systemTextColor
+            ui,selectedTextColor systemSelectedTextBackgroundColor
 	} {
 	    if {![info exists COLOR($key)]} { set COLOR($key) $default }
 	}
 
     } else {
 	foreach {key default} {
-	    ui,normalBg          \#d0d0d0
+            ui,normalBg          \#d0d0d0
             ui,selectedBg        \#f0f0f0
             ui,hoverBg           \#b0b0b0
             ui,selectedHoverBg   \#e8e8e8
             ui,textColor          black
             ui,selectedTextColor  black
-	} {
+        } {
 	    if {![info exists COLOR($key)]} { set COLOR($key) $default }
 	}
     }
@@ -941,6 +944,8 @@ proc ::tkcon::InitUI {title} {
 
     set PRIV(statusbar) [set sbar [ttk::frame $w.fstatus]]
     set PRIV(tabframe)  [set tabs [ttk::frame $w.tabs]]
+    ttk::separator $tabs.sep -orient vertical
+    pack $tabs.sep -side bottom -fill x -expand 1
 
     ttk::label $sbar.cursor -relief sunken -anchor e -width 6 -textvariable ::tkcon::PRIV(StatusCursor)
 
@@ -1131,7 +1136,7 @@ proc ::tkcon::InitTab {w} {
     lappend PRIV(tabs) $con
 
     if {[llength $PRIV(tabs)] > 1} {
-	grid $PRIV(tabframe) -row 0 -column 0 -columnspan 3 -sticky ew
+	grid $PRIV(tabframe) -row 0 -column 0 -columnspan 3 -sticky nsew
     }
     return $con
 }
