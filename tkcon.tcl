@@ -136,13 +136,15 @@ oo::class create ::tkcon::TabButton {
 	set Content     "$Container.selectBtn"
 	set CloseButton "$Container.closeBtn"
 
+	set tabname "Console [incr PRIV(nexttabname)]"
+
 	frame $Container
 
-	set tabname "Console [incr PRIV(nexttabname)]"
-	radiobutton $Content -font tkconuismall -borderwidth 0 -indicatoron 0 -takefocus 0 \
+	radiobutton $Content -font tkconuismall -borderwidth 0 -indicatoron 0 \
+	    -variable ::tkcon::PRIV(curtab) -value $con \
 	    -text $tabname -command [list ::tkcon::GotoTab $con]
 
-	label $CloseButton -text "×" -font tkconui
+	label $CloseButton -text "\u00D7" -font tkconui
 
 	# Force the close button to a square
 	set current_width  [winfo reqwidth $CloseButton]
@@ -175,8 +177,10 @@ oo::class create ::tkcon::TabButton {
 	} else {
 	    $Container configure -background $COLOR(ui,normalBg)
 	}
-	$Content configure -background [$Container cget -background]
-	$CloseButton configure -background [$Container cget -background]
+	set bg [$Container cget -background]
+	$Content configure -background $bg -activebackground $bg -highlightbackground $bg \
+	    -selectcolor $bg
+	$CloseButton configure -background $bg
     }
 
     method onLeaveContainer {} {
@@ -290,10 +294,10 @@ proc ::tkcon::Init {args} {
 
     if {$PRIV(WIN32)} {
 	foreach {key default} {
-	    ui,normalBg          systemButtonFace
-            ui,selectedBg        system3dLight
-            ui,hoverBg           systemButtonShadow
-            ui,selectedHoverBg   systemHighlight
+            ui,normalBg          systemButtonFace
+            ui,selectedBg        systemButtonHighlight
+            ui,hoverBg           system3dLight
+            ui,selectedHoverBg   systemAppWorkspace
             ui,textColor         systemButtonText
             ui,selectedTextColor systemHighlightText
 	} {
