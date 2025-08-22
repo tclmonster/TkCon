@@ -1211,6 +1211,7 @@ proc ::tkcon::NewTab {{con {}}} {
 # The extra code arg is for the alias of exit to this function
 proc ::tkcon::DeleteTab {{con {}} {child {}} {code 0}} {
     variable PRIV
+    variable OPT
 
     set numtabs [llength $PRIV(tabs)]
     if {$numtabs <= 2} {
@@ -1238,8 +1239,10 @@ proc ::tkcon::DeleteTab {{con {}} {child {}} {code 0}} {
     }
     set nexttab [lindex $PRIV(tabs) $nexttab]
     if {[$con cget -setgrid]} {
+	# Ensure geometry remains properly managed
+	$nexttab configure -width $OPT(cols) -height $OPT(rows)
 	$con configure -setgrid 0
-	$nexttab configure -setgrid 1  ;# Ensure geometry remains properly managed
+	$nexttab configure -setgrid 1
     }
     GotoTab $nexttab
 
