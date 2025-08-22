@@ -32,6 +32,9 @@
 ## source bourbon_ware.tcl
 ##
 
+## Modifications for version 3.0 release Copyright (c) 2025 Bandoti Ltd.
+## Major enhancements include object-oriented user experience redesign.
+
 # Proxy support for retrieving the current version of Tkcon.
 #
 # Mon Jun 25 12:19:56 2001 - Pat Thoyts
