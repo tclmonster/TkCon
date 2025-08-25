@@ -280,23 +280,18 @@ proc ::tkcon::Init {args} {
     ## the initial state before tkcon initializes itself.
     ##
 
-    # bg eq {} will get bg color from the main toplevel (in InitUI)
-    foreach {key default} {
-	bg		{}
-	blink		\#FFFF00
-	cursor		\#000000
-	disabled	\#4D4D4D
-	proc		\#008800
-	var		\#FFC0D0
-	prompt		\#8F4433
-	stdout		\#0000FF
-	stderr		\#FF0000
-    } {
-	if {![info exists COLOR($key)]} { set COLOR($key) $default }
-    }
-
     if {$PRIV(WIN32)} {
 	foreach {key default} {
+	    bg                   {}
+	    blink,bg             \#FFFF00
+	    blink,fg             \#000000
+	    cursor               \#000000
+	    disabled             \#4D4D4D
+	    proc                 \#008800
+	    var                  \#FFC0D0
+	    prompt               \#8F4433
+	    stdout               \#0000FF
+	    stderr               \#FF0000
             ui,normalBg          systemButtonFace
             ui,selectedBg        systemButtonHighlight
             ui,hoverBg           system3dLight
@@ -309,6 +304,16 @@ proc ::tkcon::Init {args} {
 
     } elseif {$PRIV(AQUA)} {
 	foreach {key default} {
+	    bg		         systemTextBackgroundColor
+	    blink,bg		 systemFindHighlightColor
+	    blink,fg             \#000000
+	    cursor		 systemLabelColor
+	    disabled	         systemDisabledControlTextColor
+	    proc		 systemControlAccentColor
+	    var		         systemKeyboardFocusIndicatorColor
+	    prompt		 systemSecondaryLabelColor
+	    stdout		 systemLinkColor
+	    stderr		 \#FF0000
             ui,normalBg          systemWindowBackgroundColor2
             ui,selectedBg        systemWindowBackgroundColor
             ui,hoverBg           systemWindowBackgroundColor4
@@ -321,6 +326,16 @@ proc ::tkcon::Init {args} {
 
     } else {
 	foreach {key default} {
+	    bg                   {}
+	    blink,bg             \#FFFF00
+	    blink,fg             \#000000
+	    cursor               \#000000
+	    disabled             \#4D4D4D
+	    proc                 \#008800
+	    var                  \#FFC0D0
+	    prompt               \#8F4433
+	    stdout               \#0000FF
+	    stderr               \#FF0000
             ui,normalBg          \#d0d0d0
             ui,selectedBg        \#f0f0f0
             ui,hoverBg           \#b0b0b0
@@ -1129,8 +1144,8 @@ proc ::tkcon::InitTab {w} {
     }
     $con tag configure var -background $COLOR(var)
     $con tag raise sel
-    $con tag configure blink -background $COLOR(blink)
-    $con tag configure find -background $COLOR(blink)
+    $con tag configure blink -background $COLOR(blink,bg) -foreground $COLOR(blink,fg)
+    $con tag configure find  -background $COLOR(blink,bg) -foreground $COLOR(blink,fg)
 
     set ATTACH($con) [Attach]
 
@@ -1153,7 +1168,6 @@ proc ::tkcon::GotoTab {con} {
     variable ATTACH
 
     set numtabs [llength $PRIV(tabs)]
-    #if {$numtabs == 1} { return }
 
     if {[string is integer $con]} {
 	set curtab [lsearch -exact $PRIV(tabs) $PRIV(console)]
@@ -1918,7 +1932,7 @@ proc ::tkcon::InitMenus {w title} {
 		 -command [list ::tkcon::SelectNone $text]
 	$m add separator
 	$m add command -label "Find"  -underline 0 -accel $PRIV(ACC)F \
-		-command [list ::tkcon::FindBox $text]
+		-command [list ::tkcon::FindBox]
     }
 
     ## Interp Menu
@@ -2408,8 +2422,12 @@ proc ::tkcon::XauthSecure {} {
 # ARGS:	w	- text widget
 #	str	- optional seed string for ::tkcon::PRIV(find)
 ##
-proc ::tkcon::FindBox {w {str {}}} {
+proc ::tkcon::FindBox {{w {}} {str {}}} {
     variable PRIV
+
+    if {$w eq ""} {
+	set w $::tkcon::PRIV(console)
+    }
 
     set base $PRIV(base).find
     if {![winfo exists $base]} {
@@ -2504,7 +2522,7 @@ proc ::tkcon::Find {w str args} {
 	$w tag add find $ix ${ix}+${numc}c
 	$w mark set findmark ${ix}+1c
     }
-    $w tag configure find -background $::tkcon::COLOR(blink)
+    $w tag configure find -background $::tkcon::COLOR(blink,bg) -foreground $::tkcon::COLOR(blink,fg)
     catch {$w see find.first}
     return [expr {[llength [$w tag ranges find]]/2}]
 }
@@ -4348,7 +4366,7 @@ proc edit {args} {
 	-command [list tk_textPaste $text]
     $m add separator
     $m add command -label "Find" -underline 0 \
-	-command [list ::tkcon::FindBox $text]
+	-command [list ::tkcon::FindBox]
 
     ## Send To Menu
     ##
@@ -5669,7 +5687,7 @@ proc ::tkcon::Bindings {} {
     bind $PRIV(root) <<TkCon_Close>>    { ::tkcon::DeleteTab }
     bind $PRIV(root) <<TkCon_CloseWin>> { ::tkcon::Destroy }
     bind $PRIV(root) <<TkCon_About>>    { ::tkcon::About }
-    bind $PRIV(root) <<TkCon_Find>>     { ::tkcon::FindBox $::tkcon::PRIV(console) }
+    bind $PRIV(root) <<TkCon_Find>>     { ::tkcon::FindBox }
     bind $PRIV(root) <<TkCon_Child>>    {
 	::tkcon::Attach {}
 	::tkcon::RePrompt "\n" [::tkcon::CmdGet $::tkcon::PRIV(console)]
