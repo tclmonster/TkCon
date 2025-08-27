@@ -260,8 +260,13 @@ proc ::tkcon::CalcRowsFromCols {cols} {
 }
 
 if {$::tkcon::PRIV(WIN32)} {
+    package require registry
+
     namespace eval ::tkcon::win32 {
-	if {![catch {package require cffi}]} {
+	if {[catch {package require cffi}]} {
+	    proc SetWindowDarkMode  {window value} {}
+
+	} else {
 	    cffi::alias load win32
 
 	    cffi::Wrapper create dwmapi [file join $env(windir) system32 dwmapi.dll]
@@ -296,14 +301,17 @@ if {$::tkcon::PRIV(WIN32)} {
 		cffi::pointer dispose $hwndptr
 		cffi::pointer dispose $parentptr
 	    }
+	}
 
-	    proc GetDarkModeSetting {} {
-		return 1
+	proc GetDarkModeSetting {} {
+	    set keyPath {HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize}
+	    try {
+		set appsUseLightTheme [registry get $keyPath AppsUseLightTheme]
+		return [expr {$appsUseLightTheme == 0}]
+
+	    } on error {} {
+		return 0
 	    }
-
-	} else {
-	    proc SetWindowDarkMode  {window value} {}
-	    proc GetDarkModeSetting {} { return 0 }
 	}
     }
 }
