@@ -259,6 +259,55 @@ proc ::tkcon::CalcRowsFromCols {cols} {
     return $rows
 }
 
+if {$::tkcon::PRIV(WIN32)} {
+    namespace eval ::tkcon::win32 {
+	if {![catch {package require cffi}]} {
+	    cffi::alias load win32
+
+	    cffi::Wrapper create dwmapi [file join $env(windir) system32 dwmapi.dll]
+	    cffi::Wrapper create user32 [file join $env(windir) system32 user32.dll]
+
+	    cffi::alias define HRESULT {long nonnegative winerror}
+	    dwmapi stdcall DwmSetWindowAttribute HRESULT {
+		hwnd        pointer.HWND
+		dwAttribute DWORD
+		pvAttribute pointer
+		cbAttribute DWORD
+	    }
+
+	    user32 stdcall GetParent pointer.HWND {
+		hwnd pointer.HWND
+	    }
+
+	    proc SetWindowDarkMode {window value} {
+		update
+		set hwndptr [cffi::pointer make [winfo id $window] HWND]
+		cffi::pointer safe $hwndptr
+		set parentptr [GetParent $hwndptr]
+
+		set darkmodeptr [cffi::arena pushframe BOOL]
+		cffi::memory set $darkmodeptr BOOL $value
+
+		set size [cffi::type size BOOL]
+		DwmSetWindowAttribute $parentptr 19 $darkmodeptr $size
+		DwmSetWindowAttribute $parentptr 20 $darkmodeptr $size
+
+		cffi::arena popframe
+		cffi::pointer dispose $hwndptr
+		cffi::pointer dispose $parentptr
+	    }
+
+	    proc GetDarkModeSetting {} {
+		return 1
+	    }
+
+	} else {
+	    proc SetWindowDarkMode  {window value} {}
+	    proc GetDarkModeSetting {} { return 0 }
+	}
+    }
+}
+
 ## ::tkcon::Init - inits tkcon
 #
 # Calls:	::tkcon::InitUI
@@ -281,6 +330,10 @@ proc ::tkcon::Init {args} {
     ##
 
     if {$PRIV(WIN32)} {
+	if {![info exists COLOR(darkmode)]} {
+	    set COLOR(darkmode) [::tkcon::win32::GetDarkModeSetting]
+	}
+
 	foreach {key default} {
 	    bg                   {}
 	    blink,bg             \#FFFF00
@@ -961,8 +1014,12 @@ proc ::tkcon::InitUI {title} {
     }
     set PRIV(base) $w
 
-    InitFonts ".$w"
-    InitStyles ".$w"
+    if {$PRIV(WIN32)} {
+	::tkcon::win32::SetWindowDarkMode $PRIV(root) $COLOR(darkmode)
+    }
+
+    InitFonts  $PRIV(root)
+    InitStyles $PRIV(root)
 
     set PRIV(statusbar) [set sbar [ttk::frame $w.fstatus]]
     set PRIV(tabframe)  [set tabs [ttk::frame $w.tabs]]
