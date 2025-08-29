@@ -176,9 +176,9 @@ oo::class create ::tkcon::TabButton {
     method refreshColors {} {
 	namespace upvar ::tkcon COLOR COLOR
 	if {[my selected]} {
-	    $Container configure -background $COLOR(ui,selectedBg)
+	    $Container configure -background $COLOR(selectBackground)
 	} else {
-	    $Container configure -background $COLOR(ui,normalBg)
+	    $Container configure -background $COLOR(background)
 	}
 	set bg [$Container cget -background]
 	$Content configure -background $bg -activebackground $bg -highlightbackground $bg \
@@ -189,7 +189,7 @@ oo::class create ::tkcon::TabButton {
     method onLeaveContainer {} {
 	namespace upvar ::tkcon COLOR COLOR
 	if {! [my selected]} {
-	    $Container configure -background $COLOR(ui,normalBg)
+	    $Container configure -background $COLOR(background)
 	}
 	$Content configure -background [$Container cget -background]
 	$CloseButton configure -background [$Container cget -background]
@@ -204,7 +204,7 @@ oo::class create ::tkcon::TabButton {
     method onEnterCloseButton {} {
 	namespace upvar ::tkcon COLOR COLOR
 	event generate $Container <Enter>
-	$CloseButton configure -background $COLOR(ui,selectedHoverBg)
+	$CloseButton configure -background $COLOR(highlightBackground)
     }
 
     method onLeaveCloseButton {} {
@@ -214,7 +214,7 @@ oo::class create ::tkcon::TabButton {
     method onEnterContainer {} {
 	namespace upvar ::tkcon COLOR COLOR
 	if {! [my selected]} {
-	    $Container configure -background $COLOR(ui,hoverBg)
+	    $Container configure -background $COLOR(highlightBackground)
 	}
 	$Content configure -background [$Container cget -background]
 	$CloseButton configure -background [$Container cget -background]
@@ -302,18 +302,24 @@ if {$::tkcon::PRIV(WIN32)} {
 		cffi::pointer dispose $parentptr
 	    }
 	}
+    }
 
-	proc GetDarkModeSetting {} {
-	    set keyPath {HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize}
-	    try {
-		set appsUseLightTheme [registry get $keyPath AppsUseLightTheme]
-		return [expr {$appsUseLightTheme == 0}]
+    proc ::tkcon::GetDarkModeSetting {} {
+	set keyPath {HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize}
+	try {
+	    set appsUseLightTheme [registry get $keyPath AppsUseLightTheme]
+	    return [expr {$appsUseLightTheme == 0}]
 
-	    } on error {} {
-		return 0
-	    }
+	} on error {} {
+	    return 0
 	}
     }
+
+} elseif {$::tkcon::PRIV(AQUA)} {
+    proc ::tkcon::GetDarkModeSetting {} { return 0 }
+
+} else {
+    proc ::tkcon::GetDarkModeSetting {} { return 0 }
 }
 
 ## ::tkcon::Init - inits tkcon
@@ -337,78 +343,56 @@ proc ::tkcon::Init {args} {
     ## the initial state before tkcon initializes itself.
     ##
 
-    if {$PRIV(WIN32)} {
-	if {![info exists COLOR(darkmode)]} {
-	    set COLOR(darkmode) [::tkcon::win32::GetDarkModeSetting]
-	}
+    if {![info exists COLOR(darkmode)]} {
+	set COLOR(darkmode) [::tkcon::GetDarkModeSetting]
+    }
 
-	foreach {key default} {
-	    bg                   {}
-	    blink,bg             \#FFFF00
-	    blink,fg             \#000000
-	    cursor               \#000000
-	    disabled             \#4D4D4D
-	    proc                 \#008800
-	    var                  \#FFC0D0
-	    prompt               \#8F4433
-	    stdout               \#0000FF
-	    stderr               \#FF0000
-            ui,normalBg          systemButtonFace
-            ui,selectedBg        systemButtonHighlight
-            ui,hoverBg           system3dLight
-            ui,selectedHoverBg   systemAppWorkspace
-            ui,textColor         systemButtonText
-            ui,selectedTextColor systemHighlightText
-	} {
-	    if {![info exists COLOR($key)]} { set COLOR($key) $default }
-	}
-
-    } elseif {$PRIV(AQUA)} {
-	foreach {key default} {
-	    bg		         systemTextBackgroundColor
-	    blink,bg		 systemFindHighlightColor
-	    blink,fg             \#000000
-	    cursor		 systemLabelColor
-	    disabled	         systemDisabledControlTextColor
-	    proc		 systemControlAccentColor
-	    var		         systemKeyboardFocusIndicatorColor
-	    prompt		 systemSecondaryLabelColor
-	    stdout		 systemLinkColor
-	    stderr		 \#FF0000
-            ui,normalBg          systemWindowBackgroundColor2
-            ui,selectedBg        systemWindowBackgroundColor
-            ui,hoverBg           systemWindowBackgroundColor4
-            ui,selectedHoverBg   systemWindowBackgroundColor6
-            ui,textColor         systemTextColor
-            ui,selectedTextColor systemSelectedTextBackgroundColor
-	} {
-	    if {![info exists COLOR($key)]} { set COLOR($key) $default }
+    if {$COLOR(darkmode)} {
+	set defaults {
+	    foreground \#D4D4D4
+	    background \#303031
+	    activeBackground \#0078d4
+	    activeForeground \#FFFFFF
+	    selectBackground \#0078d4
+	    selectForeground \#FFFFFF
+	    highlightColor \#008BF5
+	    highlightBackground \#569cd6
+	    disabledBackground \#3A3D41
+	    disabledForeground \#A6A6A6
+	    insertBackground \#D4D4D4
+	    troughColor \#1E1E1E
+	    borderColor \#404040
 	}
 
     } else {
-	foreach {key default} {
-	    bg                   {}
-	    blink,bg             \#FFFF00
-	    blink,fg             \#000000
-	    cursor               \#000000
-	    disabled             \#4D4D4D
-	    proc                 \#008800
-	    var                  \#FFC0D0
-	    prompt               \#8F4433
-	    stdout               \#0000FF
-	    stderr               \#FF0000
-            ui,normalBg          \#d0d0d0
-            ui,selectedBg        \#f0f0f0
-            ui,hoverBg           \#b0b0b0
-            ui,selectedHoverBg   \#e8e8e8
-            ui,textColor          black
-            ui,selectedTextColor  black
-        } {
-	    if {![info exists COLOR($key)]} { set COLOR($key) $default }
+	# TODO: at the moment these are the same as dark mode
+	set defaults {
+	    foreground \#D4D4D4
+	    background \#303031
+	    activeBackground \#0078d4
+	    activeForeground \#FFFFFF
+	    selectBackground \#0078d4
+	    selectForeground \#FFFFFF
+	    highlightColor \#008BF5
+	    highlightBackground \#569cd6
+	    disabledBackground \#3A3D41
+	    disabledForeground \#A6A6A6
+	    insertBackground \#D4D4D4
+	    troughColor \#1E1E1E
+	    borderColor \#404040
 	}
     }
 
-    set COLOR(stdin) [expr {[info exists COLOR(stdin)] ? $COLOR(stdin) : $COLOR(ui,textColor)}]
+    lappend defaults prompt \#6A9955
+    lappend defaults stdin  [dict get $defaults foreground]
+    lappend defaults stdout [dict get $defaults foreground]
+    lappend defaults stderr \#f44747
+    lappend defaults var  [dict get $defaults activeBackground]
+    lappend defaults proc [dict get $defaults activeBackground]
+
+    foreach {key default} $defaults {
+	if {![info exists COLOR($key)]} { set COLOR($key) $default }
+    }
 
     foreach {key default} {
 	autoload	{}
@@ -991,16 +975,80 @@ proc ::tkcon::InitFonts {window} {
     set uifam  [font configure tkconui -family]
     catch {font create tkconuilarge -family $uifam -size [expr {int(1.5 * $uisize)}]}
     catch {font create tkconuismall -family $uifam -size [expr {int(0.8 * $uisize)}]}
-
-    ttk::style configure $window -font tkconui
 }
 
-## ::tkcon::InitStyles - adds several styles used by the tkcon UI.
-# ARGS: window - top-level widget containing the console.
-##
-proc ::tkcon::InitStyles {window} {
-    variable COLOR
-    # Placeholder for future styles and layouts
+oo::class create ::tkcon::Theme {
+    constructor {} {
+	ttk::style theme create tkcon -parent clam
+	bind [winfo class .] <<ThemeChanged>> +[list [self] refreshOptions]
+	bind Menu <<ThemeChanged>> +[list [self] refreshMenu %W]
+    }
+
+    method refreshMenu {window} {
+	namespace upvar ::tkcon COLOR C
+	if {[ttk::style theme use] ne "tkcon"} {
+	    return
+	}
+	puts "refresh $window"
+	#$window configure -font tkconui \
+	#    -background \#252526 -foreground \#CCCCCC \
+	#    -borderwidth 1 -activeborderwidth 0 \
+	#    -relief solid;#$C(background)
+    }
+
+    method refreshOptions {} {
+	namespace upvar ::tkcon COLOR C
+	if {[ttk::style theme use] ne "tkcon"} {
+	    return
+	}
+
+	ttk::style theme settings tkcon {
+	    ttk::style configure "." \
+		-background $C(background) \
+		-foreground $C(foreground) \
+		-selectbackground $C(selectBackground) \
+		-selectforeground $C(selectForeground) \
+		-font tkconui \
+		-relief flat \
+		-bordercolor $C(borderColor) \
+		-troughcolor $C(troughColor) \
+		-highlightcolor $C(highlightColor) \
+		-bordercolor $C(borderColor)
+
+	    ttk::style map . -foreground [list active $C(activeForeground) disabled $C(disabledForeground)]
+	    ttk::style map . -background [list active $C(activeBackground) disabled $C(disabledBackground)]
+
+	    set arrowsize [expr {int(9/8.0 * [font measure tkconui "M"])}]
+	    ttk::style configure TScrollbar -arrowsize $arrowsize -arrowcolor $C(foreground) -gripcount 0 \
+		-borderwidth 0 -lightcolor $C(background) -darkcolor $C(background)
+	    ttk::style map TScrollbar -lightcolor [list {active !disabled} $C(activeBackground)] \
+		-darkcolor [list {active !disabled} $C(activeBackground)]
+
+	    ttk::style configure TButton -background $C(selectBackground)
+	    ttk::style map TButton -background [list {hover !disabled} $C(highlightColor)]
+	}
+
+	tk_setPalette \
+	    background $C(background) \
+	    foreground $C(foreground) \
+	    activeBackground $C(activeBackground) \
+	    activeForeground $C(activeForeground) \
+	    selectForeground $C(selectForeground) \
+	    selectBackground $C(selectBackground) \
+	    highlightColor $C(highlightColor) \
+	    highlightBackground $C(highlightBackground) \
+	    disabledForeground $C(disabledForeground) \
+	    insertBackground $C(insertBackground) \
+	    troughColor $C(troughColor)
+
+#	option add *Menu.background \#454545
+#	option add *Menu.disabledForeground \#ffffff
+    }
+
+    method use {} {
+	ttk::style theme use tkcon
+	update idletasks
+    }
 }
 
 ## ::tkcon::InitUI - inits UI portion (console) of tkcon
@@ -1022,12 +1070,14 @@ proc ::tkcon::InitUI {title} {
     }
     set PRIV(base) $w
 
+    InitFonts $PRIV(root)
+
     if {$PRIV(WIN32)} {
 	::tkcon::win32::SetWindowDarkMode $PRIV(root) $COLOR(darkmode)
     }
 
-    InitFonts  $PRIV(root)
-    InitStyles $PRIV(root)
+    Theme create theme
+    theme use ;# This must come after setting darkmode on Windows
 
     set PRIV(statusbar) [set sbar [ttk::frame $w.fstatus]]
     set PRIV(tabframe)  [set tabs [ttk::frame $w.tabs]]
@@ -1157,15 +1207,11 @@ proc ::tkcon::InitTab {w} {
     # text console
     set con $w.tab[incr PRIV(uid)]
     set padding [expr {int(0.333333333333333 * $PRIV(fontsize))}]
-    text $con -wrap char -foreground $COLOR(stdin) \
-	-insertbackground $COLOR(cursor) -borderwidth 1 -highlightthickness 0 \
+    text $con -wrap char -borderwidth 1 -highlightthickness 0 \
 	-padx $padding -pady $padding
     $con mark set output 1.0
     $con mark set limit 1.0
-    if {$COLOR(bg) ne ""} {
-	$con configure -background $COLOR(bg)
-    }
-    set COLOR(bg) [$con cget -background]
+
     if {$OPT(font) ne ""} {
 	## Set user-requested font, if any
 	$con configure -font $OPT(font)
@@ -1209,8 +1255,8 @@ proc ::tkcon::InitTab {w} {
     }
     $con tag configure var -background $COLOR(var)
     $con tag raise sel
-    $con tag configure blink -background $COLOR(blink,bg) -foreground $COLOR(blink,fg)
-    $con tag configure find  -background $COLOR(blink,bg) -foreground $COLOR(blink,fg)
+    $con tag configure blink -background $COLOR(activeBackground) -foreground $COLOR(activeForeground)
+    $con tag configure find  -background $COLOR(activeBackground) -foreground $COLOR(activeForeground)
 
     set ATTACH($con) [Attach]
 
@@ -1847,9 +1893,7 @@ proc ::tkcon::About {} {
 	set y [expr {[winfo y $parent] + 100}]
 	wm geometry $w [format %+d%+d $x $y]
 	ttk::button $w.b -text Dismiss -command [list wm withdraw $w]
-	text $w.text -height 9 -width 60 \
-		-foreground $COLOR(stdin) -background $COLOR(bg) \
-		-font $OPT(font) -borderwidth 1 -highlightthickness 0
+	text $w.text -height 9 -width 60 -font $OPT(font) -borderwidth 1 -highlightthickness 0
 	grid $w.text -sticky news
 	grid $w.b -sticky se -padx 6 -pady 4
 	$w.text tag config center -justify center
@@ -1880,7 +1924,6 @@ proc ::tkcon::InitMenus {w title} {
 	grid $w.label -sticky ew
 	return
     }
-    menu $w.context -disabledforeground $COLOR(disabled)
     set PRIV(context) $w.context
     set PRIV(popup) $w.pop
 
@@ -1902,8 +1945,7 @@ proc ::tkcon::InitMenus {w title} {
 
     ## File Menu
     ##
-    foreach m [list [menu $w.file -disabledforeground $COLOR(disabled)] \
-	    [menu $w.pop.file -disabledforeground $COLOR(disabled)]] {
+    foreach m [list [menu $w.file] [menu $w.pop.file]] {
 	$m add command -label "Load File" -underline 0 -command ::tkcon::Load
 	$m add cascade -label "Save ..."  -underline 0 -menu $m.save
 	$m add separator
@@ -1912,8 +1954,7 @@ proc ::tkcon::InitMenus {w title} {
 
 	## Save Menu
 	##
-	set s $m.save
-	menu $s -disabledforeground $COLOR(disabled)
+	set s [menu $m.save]
 	$s add command -label "All"	-underline 0 \
 		-command {::tkcon::Save {} all}
 	$s add command -label "History"	-underline 0 \
@@ -1928,8 +1969,7 @@ proc ::tkcon::InitMenus {w title} {
 
     ## Console Menu
     ##
-    foreach m [list [menu $w.console -disabledfore $COLOR(disabled)] \
-	    [menu $w.pop.console -disabledfore $COLOR(disabled)]] {
+    foreach m [list [menu $w.console] [menu $w.pop.console]] {
 	$m add command -label "$title Console"	-state disabled
 	$m add command -label "New Window" -underline 0 -accel $PRIV(ACC)$PRIV(MOD)N \
 		-command ::tkcon::New
@@ -1951,32 +1991,28 @@ proc ::tkcon::InitMenus {w title} {
 
 	## Attach Console Menu
 	##
-	set sub [menu $m.attach -disabledforeground $COLOR(disabled)]
+	set sub [menu $m.attach]
 	$sub add cascade -label "Interpreter" -underline 0 -menu $sub.apps
 	$sub add cascade -label "Namespace"   -underline 0 -menu $sub.name
 
 	## Attach Console Menu
 	##
-	menu $sub.apps -disabledforeground $COLOR(disabled) \
-		-postcommand [list ::tkcon::AttachMenu $sub.apps]
+	menu $sub.apps -postcommand [list ::tkcon::AttachMenu $sub.apps]
 
 	## Attach Namespace Menu
 	##
-	menu $sub.name -disabledforeground $COLOR(disabled) \
-		-postcommand [list ::tkcon::NamespaceMenu $sub.name]
+	menu $sub.name -postcommand [list ::tkcon::NamespaceMenu $sub.name]
 
 	## Attach Socket Menu
 	##
 	$sub add cascade -label "Socket" -underline 0 -menu $sub.sock
-	menu $sub.sock -disabledforeground $COLOR(disabled) \
-	    -postcommand [list ::tkcon::SocketMenu $sub.sock]
+	menu $sub.sock -postcommand [list ::tkcon::SocketMenu $sub.sock]
 
 	if {[tk windowingsystem] eq "x11"} {
 	    ## Attach Display Menu
 	    ##
 	    $sub add cascade -label "Display" -underline 0 -menu $sub.disp
-	    menu $sub.disp -disabledforeground $COLOR(disabled) \
-		    -postcommand [list ::tkcon::DisplayMenu $sub.disp]
+	    menu $sub.disp -postcommand [list ::tkcon::DisplayMenu $sub.disp]
 	}
     }
 
@@ -2003,8 +2039,7 @@ proc ::tkcon::InitMenus {w title} {
     ## Interp Menu
     ##
     foreach m [list $w.interp $w.pop.interp] {
-	menu $m -disabledforeground $COLOR(disabled) \
-		-postcommand [list ::tkcon::InterpMenu $m]
+	menu $m -postcommand [list ::tkcon::InterpMenu $m]
     }
 
     ## Prefs Menu
@@ -2059,8 +2094,7 @@ proc ::tkcon::InitMenus {w title} {
     ## History Menu
     ##
     foreach m [list $w.history $w.pop.history] {
-	menu $m -disabledforeground $COLOR(disabled) \
-		-postcommand [list ::tkcon::HistoryMenu $m]
+	menu $m -postcommand [list ::tkcon::HistoryMenu $m]
     }
 
     ## Help Menu
@@ -2181,6 +2215,7 @@ proc ::tkcon::InterpMenu w {
 ##
 proc ::tkcon::InterpPkgs {app type} {
     variable PRIV
+    variable COLOR
 
     set t $PRIV(base).interppkgs
     if {![winfo exists $t]} {
@@ -2265,6 +2300,9 @@ proc ::tkcon::InterpPkgs {app type} {
 	$t.loaded insert end [list $pkg $loaded($pkg)]
     }
 
+    if {$PRIV(WIN32)} {
+	::tkcon::win32::SetWindowDarkMode $t $COLOR(darkmode)
+    }
     wm deiconify $t
     raise $t
 }
@@ -2587,7 +2625,8 @@ proc ::tkcon::Find {w str args} {
 	$w tag add find $ix ${ix}+${numc}c
 	$w mark set findmark ${ix}+1c
     }
-    $w tag configure find -background $::tkcon::COLOR(blink,bg) -foreground $::tkcon::COLOR(blink,fg)
+    $w tag configure find -background $::tkcon::COLOR(activeBackground) \
+	-foreground $::tkcon::COLOR(activeForeground)
     catch {$w see find.first}
     return [expr {[llength [$w tag ranges find]]/2}]
 }
@@ -3293,9 +3332,6 @@ proc ::tkcon::MainInit {} {
 	    ttk::frame $w.btn
 	    ttk::scrollbar $w.sy -command [list $w.text yview]
 	    text $w.text -yscrollcommand [list $w.sy set] -height 12 \
-		    -foreground $COLOR(stdin) \
-		    -background $COLOR(bg) \
-		    -insertbackground $COLOR(cursor) \
 		    -font $OPT(font) -borderwidth 1 -highlightthickness 0
 	    $w.text tag config red -foreground red
 	    ttk::button $w.close -text "Dismiss" -command [list destroy $w]
@@ -4389,9 +4425,6 @@ proc edit {args} {
     $w.text configure -wrap $opts(-wrap) \
 	-xscrollcommand [list $w.sx set] \
 	-yscrollcommand [list $w.sy set] \
-	-foreground $COLOR(stdin) \
-	-background $COLOR(bg) \
-	-insertbackground $COLOR(cursor) \
 	-font $::tkcon::OPT(font) -borderwidth 1 -highlightthickness 0 \
 	-undo 1
     catch {
