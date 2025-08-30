@@ -362,33 +362,34 @@ proc ::tkcon::Init {args} {
 	    insertBackground \#D4D4D4
 	    troughColor \#1E1E1E
 	    borderColor \#3B3B3B
+	    consoleBackground \#303031
 	}
 
     } else {
-	# TODO: at the moment these are the same as dark mode
 	set defaults {
-	    foreground \#D4D4D4
-	    background \#303031
-	    activeBackground \#0078d4
-	    activeForeground \#FFFFFF
-	    selectBackground \#0078d4
-	    selectForeground \#FFFFFF
-	    highlightColor \#008BF5
-	    highlightBackground \#569cd6
-	    disabledBackground \#3A3D41
-	    disabledForeground \#A6A6A6
-	    insertBackground \#D4D4D4
-	    troughColor \#1E1E1E
-	    borderColor \#404040
-	}
+            foreground \#000000
+            background \#EDEDED
+            activeBackground \#F3F3F3
+            activeForeground \#000000
+            selectBackground \#0078d4
+            selectForeground \#FFFFFF
+            highlightColor \#0081E3
+            highlightBackground \#EDEDED
+            disabledBackground \#EDEDED
+            disabledForeground \#A6A6A6
+            insertBackground \#000000
+            troughColor \#E6E6E6
+            borderColor \#D4D4D4
+	    consoleBackground \#FFFFFF
+        }
     }
 
     lappend defaults prompt \#6A9955
     lappend defaults stdin  [dict get $defaults foreground]
     lappend defaults stdout [dict get $defaults foreground]
     lappend defaults stderr \#f44747
-    lappend defaults var  [dict get $defaults activeBackground]
-    lappend defaults proc [dict get $defaults activeBackground]
+    lappend defaults var  [dict get $defaults selectBackground]
+    lappend defaults proc [dict get $defaults selectBackground]
 
     foreach {key default} $defaults {
 	if {![info exists COLOR($key)]} { set COLOR($key) $default }
@@ -989,11 +990,8 @@ oo::class create ::tkcon::Theme {
 	if {[ttk::style theme use] ne "tkcon"} {
 	    return
 	}
-	puts "refresh $window"
-	#$window configure -font tkconui \
-	#    -background \#252526 -foreground \#CCCCCC \
-	#    -borderwidth 1 -activeborderwidth 0 \
-	#    -relief solid;#$C(background)
+	# TODO: when it is desireable to switch theme at runtime
+	# the existing menus will have to be updated here.
     }
 
     method refreshOptions {} {
@@ -1024,8 +1022,9 @@ oo::class create ::tkcon::Theme {
 	    ttk::style map TScrollbar -lightcolor [list {active !disabled} $C(activeBackground)] \
 		-darkcolor [list {active !disabled} $C(activeBackground)]
 
-	    ttk::style configure TButton -background $C(selectBackground)
-	    ttk::style map TButton -background [list {hover !disabled} $C(highlightColor)]
+	    ttk::style configure TButton -background $C(selectBackground) -foreground $C(selectForeground)
+	    ttk::style map TButton -background [list {hover !disabled} $C(highlightColor)] \
+		-foreground [list {hover !disabled} $C(selectForeground)]
 
 	    ttk::style configure TSeparator -background $C(borderColor)
 	}
@@ -1043,8 +1042,10 @@ oo::class create ::tkcon::Theme {
 	    insertBackground $C(insertBackground) \
 	    troughColor $C(troughColor)
 
-#	option add *Menu.background \#454545
-#	option add *Menu.disabledForeground \#ffffff
+	option add *Menu.activeBackground $C(selectBackground) ;# Accent color
+	option add *Menu.activeForeground $C(selectForeground)
+
+	option add *Text.background $C(consoleBackground)
     }
 
     method use {} {
