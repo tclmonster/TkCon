@@ -176,9 +176,9 @@ oo::class create ::tkcon::TabButton {
     method refreshColors {} {
 	namespace upvar ::tkcon COLOR COLOR
 	if {[my selected]} {
-	    $Container configure -background $COLOR(selectBackground)
+	    $Container configure -background $COLOR(activeBackground)
 	} else {
-	    $Container configure -background $COLOR(background)
+	    $Container configure -background $COLOR(troughColor)
 	}
 	set bg [$Container cget -background]
 	$Content configure -background $bg -activebackground $bg -highlightbackground $bg \
@@ -189,7 +189,7 @@ oo::class create ::tkcon::TabButton {
     method onLeaveContainer {} {
 	namespace upvar ::tkcon COLOR COLOR
 	if {! [my selected]} {
-	    $Container configure -background $COLOR(background)
+	    $Container configure -background $COLOR(troughColor)
 	}
 	$Content configure -background [$Container cget -background]
 	$CloseButton configure -background [$Container cget -background]
@@ -204,7 +204,7 @@ oo::class create ::tkcon::TabButton {
     method onEnterCloseButton {} {
 	namespace upvar ::tkcon COLOR COLOR
 	event generate $Container <Enter>
-	$CloseButton configure -background $COLOR(highlightBackground)
+	$CloseButton configure -background $COLOR(borderColor)
     }
 
     method onLeaveCloseButton {} {
@@ -214,7 +214,7 @@ oo::class create ::tkcon::TabButton {
     method onEnterContainer {} {
 	namespace upvar ::tkcon COLOR COLOR
 	if {! [my selected]} {
-	    $Container configure -background $COLOR(highlightBackground)
+	    $Container configure -background $COLOR(background)
 	}
 	$Content configure -background [$Container cget -background]
 	$CloseButton configure -background [$Container cget -background]
@@ -351,17 +351,17 @@ proc ::tkcon::Init {args} {
 	set defaults {
 	    foreground \#D4D4D4
 	    background \#303031
-	    activeBackground \#0078d4
-	    activeForeground \#FFFFFF
+	    activeBackground \#434345
+	    activeForeground \#D4D4D4
 	    selectBackground \#0078d4
 	    selectForeground \#FFFFFF
-	    highlightColor \#008BF5
-	    highlightBackground \#569cd6
-	    disabledBackground \#3A3D41
+	    highlightColor \#0081E3
+	    highlightBackground \#303031
+	    disabledBackground \#303031
 	    disabledForeground \#A6A6A6
 	    insertBackground \#D4D4D4
 	    troughColor \#1E1E1E
-	    borderColor \#404040
+	    borderColor \#3B3B3B
 	}
 
     } else {
@@ -1015,8 +1015,8 @@ oo::class create ::tkcon::Theme {
 		-highlightcolor $C(highlightColor) \
 		-bordercolor $C(borderColor)
 
-	    ttk::style map . -foreground [list active $C(activeForeground) disabled $C(disabledForeground)]
-	    ttk::style map . -background [list active $C(activeBackground) disabled $C(disabledBackground)]
+	    ttk::style map . -foreground [list {active !disabled} $C(activeForeground) disabled $C(disabledForeground)]
+	    ttk::style map . -background [list {active !disabled} $C(activeBackground) disabled $C(disabledBackground)]
 
 	    set arrowsize [expr {int(9/8.0 * [font measure tkconui "M"])}]
 	    ttk::style configure TScrollbar -arrowsize $arrowsize -arrowcolor $C(foreground) -gripcount 0 \
@@ -1026,6 +1026,8 @@ oo::class create ::tkcon::Theme {
 
 	    ttk::style configure TButton -background $C(selectBackground)
 	    ttk::style map TButton -background [list {hover !disabled} $C(highlightColor)]
+
+	    ttk::style configure TSeparator -background $C(borderColor)
 	}
 
 	tk_setPalette \
