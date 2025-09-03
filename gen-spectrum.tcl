@@ -20,13 +20,13 @@ if {! [file isdirectory $spectrum_dir]} {
     exit 1
 }
 
+set NS ::ttk::theme::spectrum ;# When loading at runtime
+
 set COLOR       [list] ;# Both light & dark
 set COLOR_LIGHT [list]
 set COLOR_DARK  [list]
-
-set LAYOUT [list] ;# Only desktop layout
-
-set NS ::ttk::theme::spectrum
+set LAYOUT      [list] ;# Only desktop layout
+set FONT        [list]
 
 proc rgb_to_hex {rgb_string} {
     if {[regexp {^{(\S+)}$} $rgb_string -> varname]} {
@@ -81,18 +81,27 @@ proc parse_colors {color_dict} {
     }
 }
 
-proc px_to_num {px_string} {
+# Process values for layout & font JSON entries.
+proc val_to_num {px_string} {
     if {[regexp {^{(\S+)}$} $px_string -> varname]} {
+	# Layout & font entries sometimes reference variables
+	# outside of the "FONT" variable (in CSS of course these
+	# are all lumped together, but here they are split by
+	# category).
 	if {[string match "*font-*" $varname]} {
-	    if {! [string match "font-size-*" $varname]} {
+	    if {! [string match "*font-size*" $varname]} {
 		# Only support font-size because Tk fonts work
 		# differently than CSS fonts. Fonts will be created
 		# and referenced directly.
 		throw {PXVAL INVALID} "Invalid size format: $px_string"
 	    }
 	    return "\$${::NS}::FONT($varname)"
+
+	} elseif {[string match "*color*" $varname]} {
+	    return "\$${::NS}::COLOR($varname)"
 	}
-	return "\$${::NS}::LAYOUT($varname)" ;# An alias to another value
+
+	return "\$${::NS}::LAYOUT($varname)"
     }
     if {[regexp {^(-?[\d.]+)(?:px)?$} $px_string -> px_value]} {
         return $px_value
@@ -106,14 +115,43 @@ proc parse_layout {layout_dict} {
     foreach key [lsort -command cmpkeys [dict keys $layout_dict]] {
 	try {
 	    if {[dict exists $layout_dict $key sets]} {
-		lappend ::LAYOUT $key [px_to_num [dict get $layout_dict $key sets desktop value]]
+		lappend ::LAYOUT $key [val_to_num [dict get $layout_dict $key sets desktop value]]
 
 	    } else {
-		lappend ::LAYOUT $key [px_to_num [dict get $layout_dict $key value]]
+		lappend ::LAYOUT $key [val_to_num [dict get $layout_dict $key value]]
 	    }
 
 	} trap {PXVAL INVALID} res {
 	    puts stderr $res
+	}
+    }
+}
+
+proc parse_font {font_dict} {
+    foreach key [lsort -command cmpkeys [dict keys $font_dict]] {
+	if {[dict exists $font_dict $key value fontFamily]} {
+	    # TODO: parse family, size, and map to system-specific font.
+	    # Split by serif, sans serif, size, and weight
+	    continue
+	}
+	switch -glob -- $key {
+	    *size*    -
+	    *height*  -
+	    *margin*  -
+	    *color*   -
+	    *spacing* {
+		try {
+		    if {[dict exists $font_dict $key sets]} {
+			lappend ::FONT $key [val_to_num [dict get $font_dict $key sets desktop value]]
+
+		    } else {
+			lappend ::FONT $key [val_to_num [dict get $font_dict $key value]]
+		    }
+
+		} trap {PXVAL INVALID} res {
+		    puts stderr $res
+		}
+	    }
 	}
     }
 }
@@ -138,7 +176,10 @@ try {
 	parse_layout $layout_dict
     }
 
-    foreach {key val} $LAYOUT {
+    set font_dict [parse_json_file [file join $spectrum_dir typography.json]]
+    parse_font $font_dict
+
+    foreach {key val} $FONT {
 	puts "$key $val"
     }
 
