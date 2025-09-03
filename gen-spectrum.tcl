@@ -24,9 +24,13 @@ set COLOR       [list] ;# Both light & dark
 set COLOR_LIGHT [list]
 set COLOR_DARK  [list]
 
+set LAYOUT [list] ;# Only desktop layout
+
+set NS ::ttk::theme::spectrum
+
 proc rgb_to_hex {rgb_string} {
     if {[regexp {^{(\S+)}$} $rgb_string -> varname]} {
-	return "\$COLOR($varname)" ;# An alias to another value
+	return "\$${::NS}::COLOR($varname)" ;# An alias to another value
     }
 
     if {[regexp {rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)} $rgb_string -> r g b]} {
@@ -77,18 +81,64 @@ proc parse_colors {color_dict} {
     }
 }
 
+proc px_to_num {px_string} {
+    if {[regexp {^{(\S+)}$} $px_string -> varname]} {
+	if {[string match "*font-*" $varname]} {
+	    if {! [string match "font-size-*" $varname]} {
+		# Only support font-size because Tk fonts work
+		# differently than CSS fonts. Fonts will be created
+		# and referenced directly.
+		throw {PXVAL INVALID} "Invalid size format: $px_string"
+	    }
+	    return "\$${::NS}::FONT($varname)"
+	}
+	return "\$${::NS}::LAYOUT($varname)" ;# An alias to another value
+    }
+    if {[regexp {^(-?[\d.]+)(?:px)?$} $px_string -> px_value]} {
+        return $px_value
+
+    } else {
+        throw {PXVAL INVALID} "Invalid size format: $px_string"
+    }
+}
+
+proc parse_layout {layout_dict} {
+    foreach key [lsort -command cmpkeys [dict keys $layout_dict]] {
+	try {
+	    if {[dict exists $layout_dict $key sets]} {
+		lappend ::LAYOUT $key [px_to_num [dict get $layout_dict $key sets desktop value]]
+
+	    } else {
+		lappend ::LAYOUT $key [px_to_num [dict get $layout_dict $key value]]
+	    }
+
+	} trap {PXVAL INVALID} res {
+	    puts stderr $res
+	}
+    }
+}
+
 try {
-    foreach json_file {
+    foreach color_file {
 	color-palette.json
 	semantic-color-palette.json
 	color-aliases.json
 	color-component.json
+	icons.json
     } {
-	set color_dict [parse_json_file [file join $spectrum_dir $json_file]]
+	set color_dict [parse_json_file [file join $spectrum_dir $color_file]]
 	parse_colors $color_dict
     }
 
-    foreach {key val} $COLOR {
+    foreach layout_file {
+	layout.json
+	layout-component.json
+    } {
+	set layout_dict [parse_json_file [file join $spectrum_dir $layout_file]]
+	parse_layout $layout_dict
+    }
+
+    foreach {key val} $LAYOUT {
 	puts "$key $val"
     }
 
