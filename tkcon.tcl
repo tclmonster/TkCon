@@ -322,6 +322,79 @@ if {$::tkcon::PRIV(WIN32)} {
     proc ::tkcon::GetDarkModeSetting {} { return 0 }
 }
 
+proc ::tkcon::InitColors {} {
+    variable COLOR
+
+    if {![info exists COLOR(darkmode)]} {
+	set COLOR(darkmode) [::tkcon::GetDarkModeSetting]
+    }
+
+    if {$COLOR(darkmode)} {
+	array set COLOR {
+	    blue-100 \#0E173F blue-200 \#0F1C52 blue-300 \#0C2175 blue-400 \#122D9A blue-500 \#1A3AC3
+	    blue-600 \#2549E5 blue-700 \#345BF8 blue-800 \#4069FD blue-900 \#5681FF blue-1000 \#6995FE
+	    blue-1100 \#7CA9FC blue-1200 \#98C0FC blue-1300 \#B5D5FD blue-1400 \#D5E7FE
+	    blue-1500 \#EEF5FF blue-1600 \#FFFFFF
+	    gray-25 \#111111 gray-50 \#1B1B1B gray-75 \#222222 gray-100 \#2C2C2C gray-200 \#323232
+	    gray-300 \#393939 gray-400 \#444444 gray-500 \#6D6D6D gray-600 \#8A8A8A gray-700 \#AFAFAF
+	    gray-800 \#DBDBDB gray-900 \#F2F2F2 gray-1000 \#FFFFFF
+	    green-100 \#001E17 green-200 \#00261D green-300 \#003326 green-400 \#004430 green-500 \#02573A
+	    green-600 \#036A43 green-700 \#047C4B green-800 \#068850 green-900 \#099D59 green-1000 \#0EAF62
+	    green-1100 \#18C16E green-1200 \#39D786 green-1300 \#7EE7AC green-1400 \#BDF1D0
+	    green-1500 \#E5FAEC green-1600 \#FFFFFF
+	    orange-100 \#311000 orange-200 \#3D1500 orange-300 \#501B00 orange-400 \#6A2400 orange-500 \#872F00
+	    orange-600 \#A23B00 orange-700 \#B94900 orange-800 \#C75200 orange-900 \#E06400 orange-1000 \#F37500
+	    orange-1100 \#FF8900 orange-1200 \#FFAD2D orange-1300 \#FFC974 orange-1400 \#FFE1B2
+	    orange-1500 \#FFF3E1 orange-1600 \#FFFFFF
+	    red-100 \#360A03 red-200 \#440D05 red-300 \#571107 red-400 \#73180B red-500 \#931F11
+	    red-600 \#B12617 red-700 \#CD2E1D red-800 \#DF3422 red-900 \#FC432E red-1000 \#FF6756
+	    red-1100 \#FF8678 red-1200 \#FFA79D red-1300 \#FFC4BD red-1400 \#FFDEDB
+	    red-1500 \#FFF2F0 red-1600 \#FFFFFF
+	    yellow-100 \#251700 yellow-200 \#2F1D00 yellow-300 \#3D2700 yellow-400 \#533400 yellow-500 \#6B4300
+	    yellow-600 \#825200 yellow-700 \#976100 yellow-800 \#A46A00 yellow-900 \#BA7C00 yellow-1000 \#CB8D00
+	    yellow-1100 \#DA9F00 yellow-1200 \#EBB700 yellow-1300 \#F9CE00 yellow-1400 \#FFE656
+	    yellow-1500 \#FFF6C3 yellow-1600 \#FFFFFF
+	}
+	set COLOR(background-base-color)       $COLOR(gray-25)
+	set COLOR(background-elevated-color)   $COLOR(gray-75)
+	set COLOR(background-layer-1-color)    $COLOR(gray-50)
+	set COLOR(background-layer-2-color)    $COLOR(gray-75)
+	set COLOR(background-pasteboard-color) $COLOR(gray-25)
+
+    } else {
+	array set COLOR {
+	    blue-100 \#F5F9FF blue-200 \#E5F0FE blue-300 \#CBE2FE blue-400 \#ACCFFD blue-500 \#8EB9FC
+	    blue-600 \#729EFD blue-700 \#5D89FF blue-800 \#4B75FF blue-900 \#3B63FB blue-1000 \#274DEA
+	    blue-1100 \#1D3ECF blue-1200 \#1532AD blue-1300 \#10288C blue-1400 \#0C1F69
+	    blue-1500 \#0E1843 blue-1600 \#070B1E
+	    gray-25 \#FFFFFF gray-50 \#F8F8F8 gray-75 \#F3F3F3 gray-100 \#E9E9E9 gray-200 \#E1E1E1
+	    gray-300 \#DADADA gray-400 \#C6C6C6 gray-500 \#8F8F8F gray-600 \#717171 gray-700 \#505050
+	    gray-800 \#292929 gray-900 \#131313 gray-1000 \#000000
+	    green-100 \#EDFCF1 green-200 \#D7F7E1 green-300 \#ADEEC5 green-400 \#6BE3A2 green-500 \#2BD17D
+	    green-600 \#12B867 green-700 \#0BA45D green-800 \#079355 green-900 \#05834E green-1000 \#036E45
+	    green-1100 \#025D3C green-1200 \#014C34 green-1300 \#003D2C green-1400 \#002E22
+	    green-1500 \#002119 green-1600 \#000F0C
+	    orange-100 \#FFF6E7 orange-200 \#FFECCF orange-300 \#FFDA9E orange-400 \#FFC15E orange-500 \#FFA213
+	    orange-600 \#FC7D00 orange-700 \#E86A00 orange-800 \#D45B00 orange-900 \#C24E00 orange-1000 \#A73E00
+	    orange-1100 \#903300 orange-1200 \#762900 orange-1300 \#5F2000 orange-1400 \#491800
+	    orange-1500 \#341200 orange-1600 \#190800
+	    red-100 \#FFF6F5 red-200 \#FFEBE8 red-300 \#FFD6D1 red-400 \#FFBCB4 red-500 \#FF9D91
+	    red-600 \#FF7665 red-700 \#FF513D red-800 \#F03823 red-900 \#D73220 red-1000 \#B72818
+	    red-1100 \#9C2113 red-1200 \#811B0E red-1300 \#68150A red-1400 \#501006
+	    red-1500 \#3B0B04 red-1600 \#1D0502
+	    yellow-100 \#FFF8CC yellow-200 \#FFF197 yellow-300 \#FFDE2C yellow-400 \#F5C700 yellow-500 \#E6AF00
+	    yellow-600 \#D29500 yellow-700 \#C18300 yellow-800 \#AF7400 yellow-900 \#9E6600 yellow-1000 \#865500
+	    yellow-1100 \#724800 yellow-1200 \#5D3B00 yellow-1300 \#4B2F00 yellow-1400 \#382300
+	    yellow-1500 \#281900 yellow-1600 \#120B00
+	}
+	set COLOR(background-base-color)       $COLOR(gray-25)
+	set COLOR(background-elevated-color)   $COLOR(gray-25)
+	set COLOR(background-layer-1-color)    $COLOR(gray-50)
+	set COLOR(background-layer-2-color)    $COLOR(gray-25)
+	set COLOR(background-pasteboard-color) $COLOR(gray-100)
+    }
+}
+
 ## ::tkcon::Init - inits tkcon
 #
 # Calls:	::tkcon::InitUI
@@ -343,45 +416,43 @@ proc ::tkcon::Init {args} {
     ## the initial state before tkcon initializes itself.
     ##
 
-    if {![info exists COLOR(darkmode)]} {
-	set COLOR(darkmode) [::tkcon::GetDarkModeSetting]
-    }
+    InitColors
 
     if {$COLOR(darkmode)} {
 	set defaults {
-	    foreground \#D4D4D4
-	    background \#303031
-	    activeBackground \#434345
-	    activeForeground \#D4D4D4
-	    selectBackground \#0078d4
-	    selectForeground \#FFFFFF
-	    highlightColor \#0081E3
-	    highlightBackground \#303031
-	    disabledBackground \#303031
-	    disabledForeground \#A6A6A6
-	    insertBackground \#D4D4D4
-	    troughColor \#1E1E1E
-	    borderColor \#3B3B3B
-	    consoleBackground \#303031
+	    foreground \#efeeee
+	    background \#65625f
+	    activeBackground \#9e9c9b
+	    activeForeground \#efeeee
+	    selectBackground \#297dd6
+	    selectForeground \#efeeee
+	    highlightColor \#4185d9
+	    highlightBackground \#65625f
+	    disabledBackground \#65625f
+	    disabledForeground \#c3c1c0
+	    insertBackground \#65625f
+	    troughColor \#4e4b48
+	    borderColor \#7e7c79
+	    consoleBackground \#312f2d
 	}
 
     } else {
 	set defaults {
-            foreground \#000000
-            background \#EDEDED
-            activeBackground \#F3F3F3
-            activeForeground \#000000
-            selectBackground \#0078d4
-            selectForeground \#FFFFFF
-            highlightColor \#0081E3
-            highlightBackground \#EDEDED
-            disabledBackground \#EDEDED
-            disabledForeground \#A6A6A6
-            insertBackground \#000000
-            troughColor \#E6E6E6
-            borderColor \#D4D4D4
-	    consoleBackground \#FFFFFF
+            troughColor \#eeeeed
+            background \#dddddc
+            foreground \#3d3c3a
+            borderColor \#b6b5b3
+            activeBackground \#969491
+            activeForeground \#3d3c3a
+            selectBackground \#2977cc
+            selectForeground \#eeeeed
+            highlightColor \#2964aa
+            disabledBackground \#b6b5b3
+            disabledForeground \#65625f
+            insertBackground \#3d3c3a
+	    consoleBackground \#ffffff
         }
+	lappend defaults highlightBackground [dict get $defaults background]
     }
 
     lappend defaults prompt \#6A9955
@@ -1019,8 +1090,10 @@ oo::class create ::tkcon::Theme {
 	    set arrowsize [expr {int(9/8.0 * [font measure tkconui "M"])}]
 	    ttk::style configure TScrollbar -arrowsize $arrowsize -arrowcolor $C(foreground) -gripcount 0 \
 		-borderwidth 0 -lightcolor $C(background) -darkcolor $C(background)
+
 	    ttk::style map TScrollbar -lightcolor [list {active !disabled} $C(activeBackground)] \
-		-darkcolor [list {active !disabled} $C(activeBackground)]
+		-darkcolor [list {active !disabled} $C(activeBackground)] \
+		-arrowcolor [list disabled $C(disabledForeground)]
 
 	    ttk::style configure TButton -background $C(selectBackground) -foreground $C(selectForeground)
 	    ttk::style map TButton -background [list {hover !disabled} $C(highlightColor)] \
