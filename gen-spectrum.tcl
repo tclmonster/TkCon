@@ -6,7 +6,7 @@ package require tjson
 
 # Helper script to generate Tcl initialization procedures for spectrum
 # color palettes, layouts and fonts. This parses JSON design tokens and
-# generates corresponding COLOR, LAYOUT, and FONT arrays.
+# generates corresponding var array containing amalgamated variables.
 
 set verbose [::apply {{} {
     set found [lsearch -exact $::argv "-verbose"]
@@ -31,19 +31,15 @@ if {! [file isdirectory $spectrum_dir]} {
 
 set NS ::ttk::theme::spectrum ;# When loading at runtime
 
-set COLOR       [list] ;# Both light & dark
-set COLOR_LIGHT [list]
-set COLOR_DARK  [list]
-set LAYOUT      [list] ;# Only desktop layout
-set FONT        [list]
+set var [list]
 
 proc rgb_to_hex {rgb_string} {
     if {[regexp {^{(\S+)}$} $rgb_string -> varname]} {
-	return "\$COLOR($varname)" ;# An alias to another value
+	return "\$var($varname)" ;# An alias to another value
     }
 
     if {[regexp {rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)} $rgb_string -> r g b]} {
-        return [format "#%02X%02X%02X" $r $g $b]
+        return [format "\"#%02X%02X%02X\"" $r $g $b]
 
     } else {
         throw {RGBSTR INVALID} "Invalid RGB format: $rgb_string"
@@ -73,51 +69,28 @@ proc cmpkeys {a b} {
     expr {$color_cmp != 0 ? $color_cmp : ($a_num < $b_num ? -1 : ($a_num > $b_num ? 1 : 0))}
 }
 
-proc refs_to_bottom {a b} {
-    set a_is_var [expr {[string index $a 0] eq "\[" || [string index $a 0] eq "\$"}]
-    set b_is_var [expr {[string index $b 0] eq "\[" || [string index $b 0] eq "\$"}]
-    if {$a_is_var && !$b_is_var} {
-	return 1
-    } elseif {$b_is_var && !$a_is_var} {
-	return -1
-    } else {
-	return 0
-    }
-}
-
 proc parse_colors {color_dict} {
     foreach key [lsort -command cmpkeys [dict keys $color_dict]] {
 	try {
 	    if {[dict exists $color_dict $key sets]} {
-		lappend ::COLOR_LIGHT $key [rgb_to_hex [dict get $color_dict $key sets light value]]
-		lappend ::COLOR_DARK  $key [rgb_to_hex [dict get $color_dict $key sets dark  value]]
+		set lightval [rgb_to_hex [dict get $color_dict $key sets light value]]
+		set darkval  [rgb_to_hex [dict get $color_dict $key sets dark  value]]
+		lappend ::var $key "\[expr {\$var(darkmode) ? $darkval : $lightval}\]"
 
 	    } else {
-		lappend ::COLOR $key [rgb_to_hex [dict get $color_dict $key value]]
+		lappend ::var $key [rgb_to_hex [dict get $color_dict $key value]]
 	    }
 
 	} trap {RGBSTR INVALID} res {
 	    if {$::verbose} { puts stderr $res }
 	}
     }
-    set ::COLOR_LIGHT [lsort -stride 2 -index 1 -command refs_to_bottom $::COLOR_LIGHT]
-    set ::COLOR_DARK  [lsort -stride 2 -index 1 -command refs_to_bottom $::COLOR_DARK]
-    set ::COLOR [lsort -stride 2 -index 1 -command refs_to_bottom $::COLOR]
-}
-
-proc in_colors? {name} {
-    expr {
-	  $name in $::COLOR_LIGHT || $name in $::COLOR_DARK || $name in $::COLOR
-      }
 }
 
 # Process values for layout & font JSON entries.
 proc val_to_num {px_string} {
     if {[regexp {^{(\S+)}$} $px_string -> varname]} {
-	# Layout & font entries sometimes reference variables
-	# outside of the "FONT" variable (in CSS of course these
-	# are all lumped together, but here they are split by
-	# category).
+	# Handle variable references
 	if {[string match "*font*" $varname]} {
 	    if {! [string match "*font-size*" $varname]} {
 		# Only support font-size because Tk fonts work
@@ -125,13 +98,8 @@ proc val_to_num {px_string} {
 		# and referenced directly.
 		throw {PXVAL INVALID} "Invalid size format: $px_string"
 	    }
-	    return "\$FONT($varname)"
-
-	} elseif {[in_colors? $varname]} {
-	    return "\$COLOR($varname)"
 	}
-
-	return "\$LAYOUT($varname)"
+	return "\$var($varname)"
     }
     if {[regexp {^(-?[\d.]+)(?:px)?$} $px_string -> px_value]} {
         return $px_value
@@ -145,24 +113,23 @@ proc parse_layout {layout_dict} {
     foreach key [lsort -command cmpkeys [dict keys $layout_dict]] {
 	try {
 	    if {[dict exists $layout_dict $key sets]} {
-		lappend ::LAYOUT $key [val_to_num [dict get $layout_dict $key sets desktop value]]
+		lappend ::var $key [val_to_num [dict get $layout_dict $key sets desktop value]]
 
 	    } else {
-		lappend ::LAYOUT $key [val_to_num [dict get $layout_dict $key value]]
+		lappend ::var $key [val_to_num [dict get $layout_dict $key value]]
 	    }
 
 	} trap {PXVAL INVALID} res {
 	    if {$::verbose} { puts stderr $res }
 	}
     }
-    set ::LAYOUT [lsort -stride 2 -index 1 -command refs_to_bottom $::LAYOUT]
 }
 
 proc parse_font {font_dict} {
     # The only font variables of use to Tk are the sizing-/spacing-
     # related values and font families. This routine expects that there will be
-    # appropriate font names populated in FONT at runtime. For example,
-    # set FONT(sans-serif-font-family) "Segoe UI"
+    # appropriate font names populated in var at runtime. For example,
+    # set var(sans-serif-font-family) "Segoe UI"
     # This is required because Adobe's fonts are proprietary and so the
     # best available system font should be calculated.
     foreach key [lsort -command cmpkeys [dict keys $font_dict]] {
@@ -170,7 +137,7 @@ proc parse_font {font_dict} {
 	    set family [dict get $font_dict $key value fontFamily]
 	    set size [dict get $font_dict $key value fontSize]
 	    set bold [string match "*bold*" [dict get $font_dict $key value fontWeight]]
-	    lappend ::FONT $key "\[get_or_create_font $family $size $bold\]"
+	    lappend ::var $key "\[get_or_create_font $family $size $bold\]"
 	    continue
 	}
 	switch -glob -- $key {
@@ -181,10 +148,10 @@ proc parse_font {font_dict} {
 	    *spacing* {
 		try {
 		    if {[dict exists $font_dict $key sets]} {
-			lappend ::FONT $key [val_to_num [dict get $font_dict $key sets desktop value]]
+			lappend ::var $key [val_to_num [dict get $font_dict $key sets desktop value]]
 
 		    } else {
-			lappend ::FONT $key [val_to_num [dict get $font_dict $key value]]
+			lappend ::var $key [val_to_num [dict get $font_dict $key value]]
 		    }
 
 		} trap {PXVAL INVALID} res {
@@ -193,7 +160,65 @@ proc parse_font {font_dict} {
 	    }
 	}
     }
-    set ::FONT [lsort -stride 2 -index 1 -command refs_to_bottom $::FONT]
+}
+
+oo::class create DependencySorter {
+    variable Visited
+    variable Sorted
+    variable Elements
+
+    method GetDependencies {value} {
+        set deps    {}
+        set pattern "\\\$var\\((\[^)]+)\\)"
+        set matches [regexp -all -inline -- $pattern $value]
+	if {$matches ne ""} {
+	    foreach {_ dep} $matches {
+		if {$dep eq "darkmode"} { continue }
+		lappend deps $dep
+	    }
+	}
+        return $deps
+    }
+
+    method Dfs {key value} {
+	set Visited($key) 1
+	set deps [my GetDependencies $value]
+	foreach dep $deps {
+	    if {! [dict exists $Elements $dep] || $Visited($dep) == 2} {
+		set Visited($key) 2
+		puts stderr "Skipping \"$key\" due to missing dependency \"$dep\""
+		return
+	    }
+	    if {$Visited($dep) == -1} {
+		my Dfs $dep [dict get $Elements $dep]
+
+	    }
+	}
+	lappend Sorted $key $value
+    }
+
+    constructor {elements} {
+	set Elements $elements
+    }
+
+    method sort {} {
+	array set Visited {}
+	set Sorted [list]
+	foreach {key _} $Elements { set Visited($key) -1 }
+	foreach {key value} $Elements {
+	    if {$Visited($key) == -1} {
+		my Dfs $key $value
+	    }
+	}
+	return $Sorted
+    }
+}
+
+proc toposort {elements} {
+    set sorter [DependencySorter new $elements]
+    set result [$sorter sort]
+    $sorter destroy
+    return $result
 }
 
 try {
@@ -219,62 +244,60 @@ try {
     set font_dict [parse_json_file [file join $spectrum_dir typography.json]]
     parse_font $font_dict
 
+    set ::var [toposort $::var]
+
     set template {
     # The following was auto-generated by gen-spectrum.tcl.
     namespace eval ::ttk::theme::spectrum {
-	variable FONT
-	variable COLOR
-	variable LAYOUT
+	variable var
+
+	if {[tk windowingsystem] eq "win32"} {
+	    package require registry
+
+	    proc GetDarkModeSetting {} {
+		set keyPath {HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize}
+		try {
+		    set appsUseLightTheme [registry get $keyPath AppsUseLightTheme]
+		    return [expr {$appsUseLightTheme == 0}]
+
+		} on error {} {
+		    return 0
+		}
+	    }
+
+	} elseif {[tk windowingsystem] eq "aqua"} {
+	    proc GetDarkModeSetting {} { return 0 }
+
+	} else {
+	    proc GetDarkModeSetting {} { return 0 }
+	}
 
 	proc get_or_create_font {family_key size bold} {
-	    variable FONT
+	    variable var
 	    set weight [expr {$bold ? "bold" : "normal"}]
 	    set tk_font_name "${family_key}-${size}-${weight}"
 	    if {$tk_font_name in [font names]} {
 		return $tk_font_name
 	    }
-	    set family  $FONT($family_key)
-	    set size_px $FONT($size)
+	    set family  $var($family_key)
+	    set size_px $var($size)
 	    return [font create $tk_font_name -family $family -size -${size_px} -weight $weight]
 	}
 
-	if {$COLOR(darkmode)} {
-@DARK_COLOR@
-	} else {
-@LIGHT_COLOR@
+	if {![info exists var(darkmode)]} {
+	    set var(darkmode) [GetDarkModeSetting]
 	}
-@COLOR@
-@LAYOUT@
-@FONT@
+@VARS@
     }
     }
 
-    set dark_color [join [lmap key [dict keys $COLOR_DARK] val [dict values $COLOR_DARK] {
-	expr {"            set COLOR($key) $val"}
+    set variables [join [lmap key [dict keys $var] val [dict values $var] {
+	expr {"        set var($key) $val"}
     }] \n]
 
-    set light_color [join [lmap key [dict keys $COLOR_LIGHT] val [dict values $COLOR_LIGHT] {
-	expr {"            set COLOR($key) $val"}
-    }] \n]
+    puts [string map [list @VARS@ $variables] $template]
 
-    set color [join [lmap key [dict keys $COLOR] val [dict values $COLOR] {
-	expr {"        set COLOR($key) $val"}
-    }] \n]
-
-    set font [join [lmap key [dict keys $FONT] val [dict values $FONT] {
-	expr {"        set FONT($key) $val"}
-    }] \n]
-
-    set layout [join [lmap key [dict keys $LAYOUT] val [dict values $LAYOUT] {
-	expr {"        set LAYOUT($key) $val"}
-    }] \n]
-
-    set mapping [list @DARK_COLOR@ $dark_color @LIGHT_COLOR@ $light_color \
-		      @COLOR@ $color @FONT@ $font @LAYOUT $layout]
-
-    puts [string map $mapping $template]
-
-} on error {res} {
+} on error res {
     puts stderr "$res"
     exit 1
 }
