@@ -84,6 +84,10 @@ proc ::spectrum::priv::get_or_create_font {family_key size bold} {
     return [font create $tk_font_name -family $family -size -${size_px} -weight $weight]
 }
 
+proc ::spectrum::scale_pixel {pixel} {
+    return [expr {int([tk scaling] * $pixel * 72.0/96.0)}] ;# CSS pixel is 1/96.0 inch
+}
+
 source [file join [file dirname [info script]] spectrum-vars.tcl]
 
 if {[tk windowingsystem] eq "win32"} {
@@ -108,7 +112,6 @@ if {[tk windowingsystem] eq "win32"} {
 	}
 
 	proc ::spectrum::SetWindowDarkMode {window value} {
-	    update
 	    set hwndptr [cffi::pointer make [winfo id $window] HWND]
 	    cffi::pointer safe $hwndptr
 	    set parentptr [GetParent $hwndptr]

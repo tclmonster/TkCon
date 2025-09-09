@@ -320,6 +320,7 @@ proc ::tkcon::Init {args} {
     }
 
     lappend defaults consoleBackground $::spectrum::var(background-base-color)
+    option add *Text.background $::spectrum::var(background-base-color)
     lappend defaults prompt \#6A9955
     lappend defaults stdin  [dict get $defaults foreground]
     lappend defaults stdout [dict get $defaults foreground]
@@ -825,9 +826,9 @@ proc ::tkcon::InitFonts {window} {
     font create tkconfixed -family $var(code-font-family) -size -$var(font-size-100)
     set PRIV(fontsize) [font configure tkconfixed -size]
 
-    font create tkconfixedbold  -family $var(code-font-family) -size -$var(font-size-200) -weight bold
+    font create tkconfixedbold  -family $var(code-font-family) -size -$var(font-size-100) -weight bold
     font create tkconfixedlarge -family $var(code-font-family) -size -$var(font-size-200)
-    font create tkconfixedsmall -family $var(code-font-family) -size -$var(font-size-200)
+    font create tkconfixedsmall -family $var(code-font-family) -size -$var(font-size-75)
 
     font create tkconui -family $var(sans-serif-font-family) -size -$var(font-size-100)
     font create tkconuilarge -family $var(sans-serif-font-family) -size -$var(font-size-200)

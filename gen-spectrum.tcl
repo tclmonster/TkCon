@@ -102,7 +102,7 @@ proc val_to_num {px_string} {
 	return "\$var($varname)"
     }
     if {[regexp {^(-?[\d.]+)(?:px)?$} $px_string -> px_value]} {
-        return $px_value
+        return "\[scale_pixel $px_value\]"
 
     } else {
         throw {PXVAL INVALID} "Invalid size format: $px_string"
@@ -224,6 +224,8 @@ proc toposort {elements} {
 }
 
 set template {
+# Copyright (c) 2025, Bandoti Ltd.
+
 # This file is generated from Adobe Spectrum design tokens.
 # Source: https://github.com/adobe/spectrum-tokens
 # Copyright 2017 Adobe Systems Incorporated
