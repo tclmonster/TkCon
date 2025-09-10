@@ -5,40 +5,40 @@ namespace eval ::spectrum {
     variable var
 
     if {[tk windowingsystem] eq "win32"} {
-	package require registry
+        package require registry
 
-	proc GetDarkModeSetting {} {
-	    set keyPath {HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize}
-	    try {
-		set appsUseLightTheme [registry get $keyPath AppsUseLightTheme]
-		return [expr {$appsUseLightTheme == 0}]
+        proc GetDarkModeSetting {} {
+            set keyPath {HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize}
+            try {
+                set appsUseLightTheme [registry get $keyPath AppsUseLightTheme]
+                return [expr {$appsUseLightTheme == 0}]
 
-	    } on error {} {
-		return 0
-	    }
-	}
+            } on error {} {
+                return 0
+            }
+        }
 
     } elseif {[tk windowingsystem] eq "aqua"} {
-	proc GetDarkModeSetting {} { return 0 }
+        proc GetDarkModeSetting {} { return 0 }
 
     } else {
-	proc GetDarkModeSetting {} { return 0 }
+        proc GetDarkModeSetting {} { return 0 }
     }
 
     set var(darkmode) [GetDarkModeSetting]
 
     set var(sans-serif-font-family) [::apply {{} {
-	set families [switch -- [tk windowingsystem] {
-	    win32   {expr {{"Segoe UI" "Tahoma" "MS Sans Serif" "Arial"}}}
-	    aqua    {expr {{"SF Pro Text" "Lucida Grande" "Geneva"}}}
-	    default {expr {{"Noto Sans" "DejaVu Sans" "Liberation Sans" "Ubuntu"}}}
-	}]
-	foreach fam [concat "Source Sans Pro" $families] {
-	    if {$fam in [font families]} {
-		return $fam
-	    }
-	}
-	return "Helvetica"
+        set families [switch -- [tk windowingsystem] {
+            win32   {expr {{"Segoe UI" "Tahoma" "MS Sans Serif" "Arial"}}}
+            aqua    {expr {{"SF Pro Text" "Lucida Grande" "Geneva"}}}
+            default {expr {{"Noto Sans" "DejaVu Sans" "Liberation Sans" "Ubuntu"}}}
+        }]
+        foreach fam [concat "Source Sans Pro" $families] {
+            if {$fam in [font families]} {
+                return $fam
+            }
+        }
+        return "Helvetica"
     }}]
 
     set var(serif-font-family) [::apply {{} {
@@ -56,17 +56,17 @@ namespace eval ::spectrum {
     }}]
 
     set var(code-font-family) [::apply {{} {
-	set families [switch -- [tk windowingsystem] {
-	    win32   {expr {{"Cascadia Code" "Consolas" "Lucida Console" "Courier New"}}}
-	    aqua    {expr {{"SF Mono" "Menlo" "Monaco"}}}
-	    default {expr {{"Noto Sans Mono" "DejaVu Sans Mono" "Liberation Mono" "Ubuntu Mono"}}}
-	}]
-	foreach fam [concat "Source Code Pro" $families] {
-	    if {$fam in [font families]} {
-		return $fam
-	    }
-	}
-	return "Courier"
+        set families [switch -- [tk windowingsystem] {
+            win32   {expr {{"Cascadia Code" "Consolas" "Lucida Console" "Courier New"}}}
+            aqua    {expr {{"SF Mono" "Menlo" "Monaco"}}}
+            default {expr {{"Noto Sans Mono" "DejaVu Sans Mono" "Liberation Mono" "Ubuntu Mono"}}}
+        }]
+        foreach fam [concat "Source Code Pro" $families] {
+            if {$fam in [font families]} {
+                return $fam
+            }
+        }
+        return "Courier"
     }}]
 }
 
@@ -77,7 +77,7 @@ proc ::spectrum::priv::get_or_create_font {family_key size bold} {
     set weight [expr {$bold ? "bold" : "normal"}]
     set tk_font_name "${family_key}-${size}-${weight}"
     if {$tk_font_name in [font names]} {
-	return $tk_font_name
+        return $tk_font_name
     }
     set family  $var($family_key)
     set size_px $var($size)
@@ -92,136 +92,166 @@ source [file join [file dirname [info script]] spectrum-vars.tcl]
 
 if {[tk windowingsystem] eq "win32"} {
     if {! [catch {package require cffi}]} {
-	namespace eval ::spectrum {
-	    cffi::alias load win32
+        namespace eval ::spectrum {
+            cffi::alias load win32
 
-	    cffi::Wrapper create dwmapi [file join $env(windir) system32 dwmapi.dll]
-	    cffi::Wrapper create user32 [file join $env(windir) system32 user32.dll]
+            cffi::Wrapper create dwmapi [file join $env(windir) system32 dwmapi.dll]
+            cffi::Wrapper create user32 [file join $env(windir) system32 user32.dll]
 
-	    cffi::alias define HRESULT {long nonnegative winerror}
-	    dwmapi stdcall DwmSetWindowAttribute HRESULT {
-		hwnd        pointer.HWND
-		dwAttribute DWORD
-		pvAttribute pointer
-		cbAttribute DWORD
-	    }
+            cffi::alias define HRESULT {long nonnegative winerror}
+            dwmapi stdcall DwmSetWindowAttribute HRESULT {
+                hwnd        pointer.HWND
+                dwAttribute DWORD
+                pvAttribute pointer
+                cbAttribute DWORD
+            }
 
-	    user32 stdcall GetParent pointer.HWND {
-		hwnd pointer.HWND
-	    }
-	}
+            user32 stdcall GetParent pointer.HWND {
+                hwnd pointer.HWND
+            }
+        }
 
-	proc ::spectrum::SetWindowDarkMode {window value} {
-	    set hwndptr [cffi::pointer make [winfo id $window] HWND]
-	    cffi::pointer safe $hwndptr
-	    set parentptr [GetParent $hwndptr]
+        proc ::spectrum::SetWindowDarkMode {window value} {
+            set hwndptr [cffi::pointer make [winfo id $window] HWND]
+            cffi::pointer safe $hwndptr
+            set parentptr [GetParent $hwndptr]
 
-	    set darkmodeptr [cffi::arena pushframe BOOL]
-	    cffi::memory set $darkmodeptr BOOL $value
+            set darkmodeptr [cffi::arena pushframe BOOL]
+            cffi::memory set $darkmodeptr BOOL $value
 
-	    set size [cffi::type size BOOL]
-	    DwmSetWindowAttribute $parentptr 19 $darkmodeptr $size
-	    DwmSetWindowAttribute $parentptr 20 $darkmodeptr $size
+            set size [cffi::type size BOOL]
+            DwmSetWindowAttribute $parentptr 19 $darkmodeptr $size
+            DwmSetWindowAttribute $parentptr 20 $darkmodeptr $size
 
-	    cffi::arena popframe
-	    cffi::pointer dispose $hwndptr
-	    cffi::pointer dispose $parentptr
-	}
+            cffi::arena popframe
+            cffi::pointer dispose $hwndptr
+            cffi::pointer dispose $parentptr
+        }
     }
 }
 
 oo::class create ::spectrum::Theme {
     constructor {} {
-	ttk::style theme create spectrum -parent clam
-	set appname [winfo class .]
-	bind $appname <<ThemeChanged>> +[list [self] refreshOptions]
-	bind $appname <<ThemeChanged>> +[list [self] refreshBindings]
-	bind Menu <<ThemeChanged>> +[list [self] refreshMenu %W]
+        ttk::style theme create spectrum -parent clam
+        set appname [winfo class .]
+        bind $appname <<ThemeChanged>> +[list [self] refreshBindings]
+        bind $appname <<ThemeChanged>> +[list [self] refreshStyles]
+        bind $appname <<ThemeChanged>> +[list [self] refreshOptions]
     }
 
     method refreshBindings {} {
-	if {[ttk::style theme use] ne "spectrum"} {
-	    return
-	}
-	if {[info commands ::spectrum::SetWindowDarkMode] ne ""} {
-	    bind [winfo class .] <Map> {
-		::spectrum::SetWindowDarkMode %W $::spectrum::var(darkmode)
-	    }
-	    bind Toplevel <Map> {
-		::spectrum::SetWindowDarkMode %W $::spectrum::var(darkmode)
-	    }
-	}
+        if {[ttk::style theme use] ne "spectrum"} {
+            return
+        }
+        if {[info commands ::spectrum::SetWindowDarkMode] ne ""} {
+            bind [winfo class .] <Map> {
+                ::spectrum::SetWindowDarkMode %W $::spectrum::var(darkmode)
+            }
+            bind Toplevel <Map> {
+                ::spectrum::SetWindowDarkMode %W $::spectrum::var(darkmode)
+            }
+        }
     }
 
-    method refreshMenu {window} {
-	namespace upvar ::spectrum COLOR C
-	if {[ttk::style theme use] ne "spectrum"} {
-	    return
-	}
-	# TODO: when it is desireable to switch theme at runtime
-	# the existing menus will have to be updated here.
+    method refreshStyles {} {
+        namespace upvar ::spectrum var var
+        if {[ttk::style theme use] ne "spectrum"} {
+            return
+        }
+
+        ttk::style theme settings spectrum {
+            ttk::style configure "." \
+                -background $var(gray-100) \
+                -foreground $var(body-color) \
+                -selectbackground $var(neutral-background-color-selected-default) \
+                -selectforeground $var(white) \
+                -font $var(component-m-regular) \
+                -relief flat \
+                -bordercolor $var(gray-700) \
+                -troughcolor $var(background-pasteboard-color) \
+                -highlightcolor $var(neutral-background-color-key-focus) \
+                -bordercolor $var(neutral-subdued-background-color-default)
+
+            #ttk::style map . -foreground [list {active !disabled} $var(activeForeground) disabled $C(disabledForeground)]
+            #ttk::style map . -background [list {active !disabled} $C(activeBackground) disabled $C(disabledBackground)]
+        }
+
+        #set arrowsize [expr {int(9/8.0 * [font measure spectrumui "M"])}]
+        #ttk::style configure TScrollbar -arrowsize $arrowsize -arrowcolor $C(foreground) -gripcount 0 \
+        #    -borderwidth 0 -lightcolor $C(background) -darkcolor $C(background)
+
+        #ttk::style map TScrollbar -lightcolor [list {active !disabled} $C(activeBackground)] \
+        #    -darkcolor [list {active !disabled} $C(activeBackground)] \
+        #    -arrowcolor [list disabled $C(disabledForeground)]
+
+        #ttk::style configure TButton -background $C(selectBackground) -foreground $C(selectForeground)
+        #ttk::style map TButton -background [list {hover !disabled} $C(highlightColor)] \
+        #    -foreground [list {hover !disabled} $C(selectForeground)]
+
+        #ttk::style configure TSeparator -background $C(borderColor)
     }
 
     method refreshOptions {} {
-	namespace upvar ::spectrum var var
-	if {[ttk::style theme use] ne "spectrum"} {
-	    return
-	}
+        namespace upvar ::spectrum var var
+        if {[ttk::style theme use] ne "spectrum"} {
+            return
+        }
 
-	if 0 {
-	ttk::style theme settings spectrum {
-	    ttk::style configure "." \
-		-background $C(background) \
-		-foreground $C(foreground) \
-		-selectbackground $C(selectBackground) \
-		-selectforeground $C(selectForeground) \
-		-font spectrumui \
-		-relief flat \
-		-bordercolor $C(borderColor) \
-		-troughcolor $C(troughColor) \
-		-highlightcolor $C(highlightColor) \
-		-bordercolor $C(borderColor)
+        tk_setPalette \
+            background $var(gray-100) \
+            foreground $var(body-color) \
+            activeBackground $var(informative-background-color-default) \
+            activeForeground $var(white) \
+            selectBackground $var(informative-background-color-default) \
+            selectForeground $var(white) \
+            highlightColor $var(accent-content-color-key-focus) \
+            highlightBackground $var(gray-200) \
+            disabledForeground $var(disabled-content-color) \
+            insertBackground $var(body-color) \
+            troughColor $var(background-pasteboard-color)
 
-	    ttk::style map . -foreground [list {active !disabled} $C(activeForeground) disabled $C(disabledForeground)]
-	    ttk::style map . -background [list {active !disabled} $C(activeBackground) disabled $C(disabledBackground)]
+        option add *Text.background $var(background-base-color)
 
-	    set arrowsize [expr {int(9/8.0 * [font measure spectrumui "M"])}]
-	    ttk::style configure TScrollbar -arrowsize $arrowsize -arrowcolor $C(foreground) -gripcount 0 \
-		-borderwidth 0 -lightcolor $C(background) -darkcolor $C(background)
+        option add *Menu.background $var(gray-200)
+        option add *Menu.foreground $var(body-color)
+        option add *Menu.activeBackground $var(static-blue-900)
+        option add *Menu.activeForeground $var(white)
+        option add *Menu.selectColor $var(body-color)
+        option add *Menu.disabledForeground [expr {$var(darkmode) ? $var(gray-600) : $var(gray-500)}]
 
-	    ttk::style map TScrollbar -lightcolor [list {active !disabled} $C(activeBackground)] \
-		-darkcolor [list {active !disabled} $C(activeBackground)] \
-		-arrowcolor [list disabled $C(disabledForeground)]
+        option add *font $var(component-m-regular)
 
-	    ttk::style configure TButton -background $C(selectBackground) -foreground $C(selectForeground)
-	    ttk::style map TButton -background [list {hover !disabled} $C(highlightColor)] \
-		-foreground [list {hover !disabled} $C(selectForeground)]
+        set widgets [list .]
+        while {$widgets ne ""} {
+            set widgets [lassign $widgets current]
+            switch [winfo class $current] {
+                Menu - Text { my RefreshWidget $current }
+            }
+            lappend widgets {*}[lreverse [winfo children $current]]
+        }
+    }
 
-	    ttk::style configure TSeparator -background $C(borderColor)
-	}
-
-	tk_setPalette \
-	    background $C(background) \
-	    foreground $C(foreground) \
-	    activeBackground $C(activeBackground) \
-	    activeForeground $C(activeForeground) \
-	    selectForeground $C(selectForeground) \
-	    selectBackground $C(selectBackground) \
-	    highlightColor $C(highlightColor) \
-	    highlightBackground $C(highlightBackground) \
-	    disabledForeground $C(disabledForeground) \
-	    insertBackground $C(insertBackground) \
-	    troughColor $C(troughColor)
-
-	option add *Menu.activeBackground $C(selectBackground) ;# Accent color
-	option add *Menu.activeForeground $C(selectForeground)
-
-	option add *Text.background $C(consoleBackground)
-	} ;# IF 0
+    method RefreshWidget {widget} {
+        set options {
+            background borderWidth foreground
+            relief
+            activeBackground activeBorderWidth activeForeground
+            activeRelief
+            selectBackground selectBorderWidth selectForeground
+            selectColor
+            highlightBackground highlightColor highlightThickness
+            insertBackground insertBorderWidth
+            insertWidth
+            disabledForeground font
+        }
+        foreach opt $options {
+            set name [string tolower $opt]
+            catch {$widget configure -$name [option get $widget $opt [winfo class $widget]]}
+        }
     }
 
     method use {} {
-	ttk::style theme use spectrum
+        ttk::style theme use spectrum
     }
 }
 

@@ -786,7 +786,7 @@ proc ::tkcon::InitFonts {window} {
     variable PRIV
 
     font create tkconfixed -family $var(code-font-family) -size -$var(font-size-100)
-    set PRIV(fontsize) [font configure tkconfixed -size]
+    set PRIV(fontsize) [expr {abs([font configure tkconfixed -size])}]
 
     font create tkconfixedbold  -family $var(code-font-family) -size -$var(font-size-100) -weight bold
     font create tkconfixedlarge -family $var(code-font-family) -size -$var(font-size-200)
@@ -795,6 +795,8 @@ proc ::tkcon::InitFonts {window} {
     font create tkconui -family $var(sans-serif-font-family) -size -$var(font-size-100)
     font create tkconuilarge -family $var(sans-serif-font-family) -size -$var(font-size-200)
     font create tkconuismall -family $var(sans-serif-font-family) -size -$var(font-size-75)
+
+    option add *Text.font tkconfixed 100 ;# Higher priority will override spectrum font
 }
 
 ## ::tkcon::InitUI - inits UI portion (console) of tkcon
@@ -5361,7 +5363,7 @@ proc tcl_unknown args {
 #
 ############################################################################
 proc ::tkcon::ResizeSet {incr} {
-    set size [font configure tkconfixed -size]
+    set size [expr {abs([font configure tkconfixed -size])}]
     set new [expr {$size + $incr}]
     if {$new < 6 || $new > 64} {
 	return
@@ -5424,7 +5426,7 @@ proc ::tkcon::ResizeDn {} {
 ############################################################################
 proc ::tkcon::ResizeReset {} {
     variable PRIV
-    set incr [expr {$PRIV(fontsize) - [font configure tkconfixed -size]}]
+    set incr [expr {$PRIV(fontsize) - abs([font configure tkconfixed -size])}]
     ResizeSet $incr
 }
 
