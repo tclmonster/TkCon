@@ -176,11 +176,11 @@ oo::class create ::tkcon::TabButton {
     }
 
     method refreshColors {} {
-	namespace upvar ::tkcon COLOR COLOR
+	namespace upvar ::spectrum var var
 	if {[my selected]} {
-	    $Container configure -background $COLOR(activeBackground)
+	    $Container configure -background $var(background-elevated-color)
 	} else {
-	    $Container configure -background $COLOR(troughColor)
+	    $Container configure -background $var(background-pasteboard-color)
 	}
 	set bg [$Container cget -background]
 	$Content configure -background $bg -activebackground $bg -highlightbackground $bg \
@@ -189,9 +189,9 @@ oo::class create ::tkcon::TabButton {
     }
 
     method onLeaveContainer {} {
-	namespace upvar ::tkcon COLOR COLOR
+	namespace upvar ::spectrum var var
 	if {! [my selected]} {
-	    $Container configure -background $COLOR(troughColor)
+	    $Container configure -background $var(background-pasteboard-color)
 	}
 	$Content configure -background [$Container cget -background]
 	$CloseButton configure -background [$Container cget -background]
@@ -204,9 +204,9 @@ oo::class create ::tkcon::TabButton {
     }
 
     method onEnterCloseButton {} {
-	namespace upvar ::tkcon COLOR COLOR
+	namespace upvar ::spectrum var var
 	event generate $Container <Enter>
-	$CloseButton configure -background $COLOR(borderColor)
+	$CloseButton configure -background $var(background-layer-1-color)
     }
 
     method onLeaveCloseButton {} {
@@ -214,9 +214,9 @@ oo::class create ::tkcon::TabButton {
     }
 
     method onEnterContainer {} {
-	namespace upvar ::tkcon COLOR COLOR
+	namespace upvar ::spectrum var var
 	if {! [my selected]} {
-	    $Container configure -background $COLOR(background)
+	    $Container configure -background $var(background-layer-1-color)
 	}
 	$Content configure -background [$Container cget -background]
 	$CloseButton configure -background [$Container cget -background]
@@ -282,51 +282,13 @@ proc ::tkcon::Init {args} {
     ## the initial state before tkcon initializes itself.
     ##
 
-    set COLOR(darkmode) $::spectrum::var(darkmode)
-
-    if {$COLOR(darkmode)} {
-	set defaults {
-	    foreground \#efeeee
-	    background \#65625f
-	    activeBackground \#9e9c9b
-	    activeForeground \#efeeee
-	    selectBackground \#297dd6
-	    selectForeground \#efeeee
-	    highlightColor \#4185d9
-	    highlightBackground \#65625f
-	    disabledBackground \#65625f
-	    disabledForeground \#c3c1c0
-	    insertBackground \#65625f
-	    troughColor \#4e4b48
-	    borderColor \#7e7c79
-	}
-
-    } else {
-	set defaults {
-            troughColor \#eeeeed
-            background \#dddddc
-            foreground \#3d3c3a
-            borderColor \#b6b5b3
-            activeBackground \#969491
-            activeForeground \#3d3c3a
-            selectBackground \#2977cc
-            selectForeground \#eeeeed
-            highlightColor \#2964aa
-            disabledBackground \#b6b5b3
-            disabledForeground \#65625f
-            insertBackground \#3d3c3a
-        }
-	lappend defaults highlightBackground [dict get $defaults background]
-    }
-
     lappend defaults consoleBackground $::spectrum::var(background-base-color)
-    option add *Text.background $::spectrum::var(background-base-color)
-    lappend defaults prompt \#6A9955
-    lappend defaults stdin  [dict get $defaults foreground]
-    lappend defaults stdout [dict get $defaults foreground]
-    lappend defaults stderr \#f44747
-    lappend defaults var  [dict get $defaults selectBackground]
-    lappend defaults proc [dict get $defaults selectBackground]
+    lappend defaults prompt $::spectrum::var(positive-visual-color)
+    lappend defaults stdin  $::spectrum::var(body-color)
+    lappend defaults stdout $::spectrum::var(body-color)
+    lappend defaults stderr $::spectrum::var(negative-visual-color)
+    lappend defaults var  $::spectrum::var(accent-content-color-default)
+    lappend defaults proc $::spectrum::var(accent-content-color-default)
 
     foreach {key default} $defaults {
 	if {![info exists COLOR($key)]} { set COLOR($key) $default }
@@ -1033,8 +995,8 @@ proc ::tkcon::InitTab {w} {
     }
     $con tag configure var -background $COLOR(var)
     $con tag raise sel
-    $con tag configure blink -background $COLOR(activeBackground) -foreground $COLOR(activeForeground)
-    $con tag configure find  -background $COLOR(activeBackground) -foreground $COLOR(activeForeground)
+    $con tag configure blink -background $::spectrum::var(accent-background-color-hover) -foreground $::spectrum::var(white)
+    $con tag configure find  -background $::spectrum::var(yellow-background-color-default) -foreground $::spectrum::var(black)
 
     set ATTACH($con) [Attach]
 
@@ -2399,8 +2361,8 @@ proc ::tkcon::Find {w str args} {
 	$w tag add find $ix ${ix}+${numc}c
 	$w mark set findmark ${ix}+1c
     }
-    $w tag configure find -background $::tkcon::COLOR(activeBackground) \
-	-foreground $::tkcon::COLOR(activeForeground)
+    $w tag configure find -background $::spectrum::var(yellow-background-color-default) \
+	-foreground $::spectrum::var(black)
     catch {$w see find.first}
     return [expr {[llength [$w tag ranges find]]/2}]
 }
