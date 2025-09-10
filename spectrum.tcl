@@ -167,10 +167,9 @@ oo::class create ::spectrum::Theme {
                 -selectforeground $var(white) \
                 -font $var(component-m-regular) \
                 -relief flat \
-                -bordercolor $var(gray-700) \
+                -bordercolor $var(gray-300) \
                 -troughcolor $var(background-pasteboard-color) \
-                -highlightcolor $var(neutral-background-color-key-focus) \
-                -bordercolor $var(neutral-subdued-background-color-default)
+                -highlightcolor $var(neutral-background-color-key-focus)
 
             #ttk::style map . -foreground [list {active !disabled} $var(activeForeground) disabled $C(disabledForeground)]
             #ttk::style map . -background [list {active !disabled} $C(activeBackground) disabled $C(disabledBackground)]
@@ -184,11 +183,16 @@ oo::class create ::spectrum::Theme {
         #    -darkcolor [list {active !disabled} $C(activeBackground)] \
         #    -arrowcolor [list disabled $C(disabledForeground)]
 
-        #ttk::style configure TButton -background $C(selectBackground) -foreground $C(selectForeground)
-        #ttk::style map TButton -background [list {hover !disabled} $C(highlightColor)] \
-        #    -foreground [list {hover !disabled} $C(selectForeground)]
+        ttk::style configure TButton -background $var(gray-300) -foreground $var(neutral-content-color-default)
+        ttk::style map TButton -background [list {hover !disabled} $var(gray-400)]
 
-        #ttk::style configure TSeparator -background $C(borderColor)
+        ttk::style configure Primary.TButton -background $var(neutral-background-color-default) -foreground $var(white)
+        ttk::style map Primary.TButton -background [list {hover !disabled} $var(neutral-background-color-hover)]
+
+        ttk::style configure Accent.TButton -background $var(accent-background-color-default) -foreground $var(white)
+        ttk::style map Accent.TButton -background [list {hover !disabled} $var(accent-background-color-hover)]
+
+        ttk::style configure TSeparator -background $var(gray-300)
     }
 
     method refreshOptions {} {
