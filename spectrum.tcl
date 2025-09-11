@@ -168,20 +168,19 @@ oo::class create ::spectrum::Theme {
                 -font $var(component-m-regular) \
                 -relief flat \
                 -bordercolor $var(gray-300) \
-                -troughcolor $var(background-pasteboard-color) \
+                -troughcolor $var(gray-75) \
                 -highlightcolor $var(neutral-background-color-key-focus)
 
             #ttk::style map . -foreground [list {active !disabled} $var(activeForeground) disabled $C(disabledForeground)]
             #ttk::style map . -background [list {active !disabled} $C(activeBackground) disabled $C(disabledBackground)]
         }
 
-        #set arrowsize [expr {int(9/8.0 * [font measure spectrumui "M"])}]
-        #ttk::style configure TScrollbar -arrowsize $arrowsize -arrowcolor $C(foreground) -gripcount 0 \
-        #    -borderwidth 0 -lightcolor $C(background) -darkcolor $C(background)
+        set arrowsize [expr {int(9/8.0 * [font measure spectrumui "M"])}]
+        ttk::style configure TScrollbar -arrowsize $arrowsize -arrowcolor $var(neutral-subdued-background-color-default) \
+	    -gripcount 0 -borderwidth 0 -lightcolor $var(gray-100) -darkcolor $var(gray-100) -background $var(gray-200)
 
-        #ttk::style map TScrollbar -lightcolor [list {active !disabled} $C(activeBackground)] \
-        #    -darkcolor [list {active !disabled} $C(activeBackground)] \
-        #    -arrowcolor [list disabled $C(disabledForeground)]
+        ttk::style map TScrollbar -lightcolor [list disabled $var(gray-75)] -darkcolor [list disabled $var(gray-75)] \
+            -arrowcolor [list disabled $var(disabled-content-color)] -background [list disabled $var(disabled-background-color)]
 
         ttk::style configure TButton -background $var(gray-300) -foreground $var(neutral-content-color-default)
         ttk::style map TButton -background [list {hover !disabled} $var(gray-400)]
