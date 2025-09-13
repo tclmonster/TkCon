@@ -19,7 +19,13 @@ namespace eval ::spectrum {
         }
 
     } elseif {[tk windowingsystem] eq "aqua"} {
-        proc GetDarkModeSetting {} { return 0 }
+        proc GetDarkModeSetting {} {
+            if {[catch {exec defaults read -g AppleInterfaceStyle} res]} {
+                return 0
+            } else {
+                return [expr {$res eq "Dark"}]
+            }
+        }
 
     } else {
         proc GetDarkModeSetting {} { return 0 }
@@ -159,6 +165,7 @@ oo::class create ::spectrum::Theme {
             return
         }
 
+        set border_color [expr {$var(darkmode) ? $var(gray-400) : $var(gray-300)}]
         ttk::style theme settings spectrum {
             ttk::style configure "." \
                 -background $var(gray-100) \
@@ -167,31 +174,60 @@ oo::class create ::spectrum::Theme {
                 -selectforeground $var(white) \
                 -font $var(component-m-regular) \
                 -relief flat \
-                -bordercolor $var(gray-300) \
-                -troughcolor $var(gray-75) \
+                -bordercolor $border_color \
+                -troughcolor $var(gray-50) \
                 -highlightcolor $var(neutral-background-color-key-focus)
 
             #ttk::style map . -foreground [list {active !disabled} $var(activeForeground) disabled $C(disabledForeground)]
             #ttk::style map . -background [list {active !disabled} $C(activeBackground) disabled $C(disabledBackground)]
         }
 
-        set arrowsize [expr {int(9/8.0 * [font measure spectrumui "M"])}]
-        ttk::style configure TScrollbar -arrowsize $arrowsize -arrowcolor $var(neutral-subdued-background-color-default) \
-	    -gripcount 0 -borderwidth 0 -lightcolor $var(gray-100) -darkcolor $var(gray-100) -background $var(gray-200)
-
-        ttk::style map TScrollbar -lightcolor [list disabled $var(gray-75)] -darkcolor [list disabled $var(gray-75)] \
-            -arrowcolor [list disabled $var(disabled-content-color)] -background [list disabled $var(disabled-background-color)]
-
-        ttk::style configure TButton -background $var(gray-300) -foreground $var(neutral-content-color-default)
-        ttk::style map TButton -background [list {hover !disabled} $var(gray-400)]
-
-        ttk::style configure Primary.TButton -background $var(neutral-background-color-default) -foreground $var(white)
-        ttk::style map Primary.TButton -background [list {hover !disabled} $var(neutral-background-color-hover)]
-
-        ttk::style configure Accent.TButton -background $var(accent-background-color-default) -foreground $var(white)
-        ttk::style map Accent.TButton -background [list {hover !disabled} $var(accent-background-color-hover)]
+        my RefreshScrollbar
+        my RefreshButton
 
         ttk::style configure TSeparator -background $var(gray-300)
+    }
+
+    method RefreshScrollbar {} {
+        namespace upvar ::spectrum var var
+        ttk::style theme settings spectrum {
+            ttk::style layout Vertical.TScrollbar {
+                Vertical.Scrollbar.trough -sticky ns -children {
+                    Vertical.Scrollbar.thumb -sticky nswe
+                }
+            }
+            ttk::style layout Horizontal.TScrollbar {
+                Horizontal.Scrollbar.trough -sticky we -children {
+                    Horizontal.Scrollbar.thumb -sticky nswe
+                }
+            }
+            set arrowsize [expr {int(9/8.0 * [font measure spectrumui "M"])}]
+            set scrollbar_bg [expr {$var(darkmode) ? $var(gray-500) : $var(gray-400)}]
+            set thumb_bg $scrollbar_bg
+            ttk::style configure TScrollbar -arrowsize $arrowsize -arrowcolor $var(neutral-subdued-background-color-default) \
+                -gripcount 0 -borderwidth 0 -lightcolor $thumb_bg -darkcolor $thumb_bg \
+                -background $scrollbar_bg
+
+            set scrollbar_active_bg [expr {$var(darkmode) ? $var(gray-600) : $var(gray-500)}]
+            ttk::style map TScrollbar \
+                -lightcolor [list disabled $var(gray-75) {active !disabled} $scrollbar_active_bg] \
+                -darkcolor  [list disabled $var(gray-75) {active !disabled} $scrollbar_active_bg] \
+                -background [list disabled $var(disabled-background-color) {active !disabled} $scrollbar_active_bg]
+        }
+    }
+
+    method RefreshButton {} {
+        namespace upvar ::spectrum var var
+        ttk::style theme settings spectrum {
+            ttk::style configure TButton -background $var(gray-300) -foreground $var(neutral-content-color-default)
+            ttk::style map TButton -background [list {hover !disabled} $var(gray-400)]
+
+            ttk::style configure Primary.TButton -background $var(neutral-background-color-default) -foreground $var(white)
+            ttk::style map Primary.TButton -background [list {hover !disabled} $var(neutral-background-color-hover)]
+
+            ttk::style configure Accent.TButton -background $var(accent-background-color-default) -foreground $var(white)
+            ttk::style map Accent.TButton -background [list {hover !disabled} $var(accent-background-color-hover)]
+        }
     }
 
     method refreshOptions {} {

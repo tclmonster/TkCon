@@ -101,8 +101,11 @@ proc val_to_num {px_string} {
 	}
 	return "\$var($varname)"
     }
-    if {[regexp {^(-?[\d.]+)(?:px)?$} $px_string -> px_value]} {
+    if {[regexp {^(-?\d+)px$} $px_string -> px_value]} {
         return "\[scale_pixel $px_value\]"
+
+    } elseif {[regexp {^(-?[\d.]+)$} $px_string -> value]} {
+        return $value
 
     } else {
         throw {PXVAL INVALID} "Invalid size format: $px_string"
