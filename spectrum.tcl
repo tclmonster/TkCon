@@ -201,10 +201,10 @@ oo::class create ::spectrum::Theme {
                     Horizontal.Scrollbar.thumb -sticky nswe
                 }
             }
-            set arrowsize [expr {int(9/8.0 * [font measure spectrumui "M"])}]
+            set arrowsize [font measure spectrumui "M"]
             set scrollbar_bg [expr {$var(darkmode) ? $var(gray-500) : $var(gray-400)}]
             set thumb_bg $scrollbar_bg
-            ttk::style configure TScrollbar -arrowsize $arrowsize -arrowcolor $var(neutral-subdued-background-color-default) \
+            ttk::style configure TScrollbar -arrowsize $arrowsize \
                 -gripcount 0 -borderwidth 0 -lightcolor $thumb_bg -darkcolor $thumb_bg \
                 -background $scrollbar_bg
 
