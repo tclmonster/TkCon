@@ -69,8 +69,8 @@ foreach pkg [info loaded {}] {
     }
 }
 
-source [file join [file dirname [info script]] spectrum.tcl]
-::spectrum::theme use
+#source [file join [file dirname [info script]] spectrum.tcl]
+#::spectrum::theme use
 
 # Unset temporary global vars
 catch {unset pkg file name version}
@@ -351,6 +351,33 @@ proc ::tkcon::InitFonts {} {
     option add *Text.font tkcon-fixed 100 ;# Higher priority will override any theme fonts
 }
 
+## ::tkcon::DarkModeSetting - detects dark mode
+# Outputs: true if dark mode is enabled, otherwise false
+##
+proc ::tkcon::DarkModeSetting {} {
+    variable PRIV
+    set darkmode 0
+    catch {
+	if {$PRIV(WIN32)} {
+	    package require registry
+	    set keypath {HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize}
+	    set darkmode [expr {[registry get $keypath AppsUseLightTheme] == 0}]
+
+	} elseif {$PRIV(AQUA)} {
+	    set istyle [exec defaults read -g AppleInterfaceStyle]
+	    set darkmode [expr {$istyle eq "Dark"}]
+
+	} else {
+	    set colorscheme_query {qdbus org.freedesktop.portal.Desktop /org/freedesktop/portal/desktop
+		org.freedesktop.portal.Settings.Read "org.freedesktop.appearance" "color-scheme"
+	    }
+	    set darkmode [expr {1 == [exec {*}$colorscheme_query]}]
+	}
+
+    }
+    return $darkmode
+}
+
 ## ::tkcon::Init - inits tkcon
 #
 # Calls:	::tkcon::InitUI
@@ -372,6 +399,10 @@ proc ::tkcon::Init {args} {
     ## the initial state before tkcon initializes itself.
     ##
 
+    if {! [info exists OPT(darkmode)]} {
+	set OPT(darkmode) [DarkModeSetting]
+    }
+
     set color_defaults {
 	stderr   "#F03823"
 	var      "#4B75FF"
@@ -386,12 +417,12 @@ proc ::tkcon::Init {args} {
     lappend color_defaults stdout [ttk::style lookup . -foreground]
     lappend color_defaults prompt [ttk::style lookup . -foreground]
 
-    lappend color_defaults tab-fg "#DBDBDB"
-    lappend color_defaults tab-bg  "#505050"
-    lappend color_defaults tab-selected-fg "#DBDBDB"
-    lappend color_defaults tab-selected-bg "#8F8F8F"
-    lappend color_defaults tab-hover-fg "#DBDBDB"
-    lappend color_defaults tab-hover-bg "#717171"
+    lappend color_defaults tab-fg black
+    lappend color_defaults tab-bg "#E1E1E1"
+    lappend color_defaults tab-selected-fg black
+    lappend color_defaults tab-selected-bg "#F3F3F3"
+    lappend color_defaults tab-hover-fg black
+    lappend color_defaults tab-hover-bg "#E9E9E9"
 
     foreach {key default} $color_defaults {
 	if {![info exists COLOR($key)]} { set COLOR($key) $default }
