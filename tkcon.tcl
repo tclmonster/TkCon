@@ -70,6 +70,7 @@ foreach pkg [info loaded {}] {
 }
 
 source [file join [file dirname [info script]] spectrum.tcl]
+::spectrum::theme use
 
 # Unset temporary global vars
 catch {unset pkg file name version}
@@ -159,7 +160,7 @@ oo::class create ::tkcon::TabButton {
 	set ipad_y [expr {($target_size - $current_height) / 2}]
 
 	set separator [ttk::separator $Container.sep]
-	grid $CloseButton -row 0 -column 0 -ipadx $ipad_x -ipady $ipad_y
+	grid $CloseButton -row 0 -column 0 -ipadx $ipad_x -ipady $ipad_y -sticky nsew
 	grid $Content     -row 0 -column 1 -sticky nsew
 	grid $separator   -row 0 -column 2 -sticky ns
 	grid columnconfigure $Container 1 -weight 1
@@ -177,28 +178,33 @@ oo::class create ::tkcon::TabButton {
 
     method refreshColors {} {
 	namespace upvar ::tkcon COLOR C
-	if {[my selected]} {
-	    $Container configure -background $C(tab-selected-bg)
-	    $Content configure -foreground $C(tab-selected-fg)
-	    $CloseButton configure -foreground $C(tab-selected-fg)
-	} else {
-	    $Container configure -background $C(tab-bg)
-	    $Content configure -foreground $C(tab-fg)
-	    $CloseButton configure -foreground $C(tab-fg)
-	}
-	set bg [$Container cget -background]
-	$Content configure -background $bg -activebackground $bg -highlightbackground $bg \
-	    -selectcolor $bg
-	$CloseButton configure -background $bg
+	set sel [my selected]
+	$Container configure \
+	    -background [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}]
+
+	$Content configure \
+	    -background [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}] \
+	    -foreground [expr {$sel ? $C(tab-selected-fg) : $C(tab-fg)}] \
+	    -activebackground [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}] \
+	    -selectcolor [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}]
+
+	$CloseButton configure \
+	    -background [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}] \
+	    -foreground [expr {$sel ? $C(tab-selected-fg) : $C(tab-fg)}]
     }
 
     method onLeaveContainer {} {
 	namespace upvar ::tkcon COLOR C
-	if {! [my selected]} {
-	    $Container configure -background $C(tab-bg)
-	}
-	$Content configure -background [$Container cget -background]
-	$CloseButton configure -background [$Container cget -background]
+	set sel [my selected]
+	set bg [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}]
+	set fg [expr {$sel ? $C(tab-selected-fg) : $C(tab-fg)}]
+
+	$Content configure \
+	    -background $bg -foreground $fg \
+	    -activebackground $bg -activeforeground $fg \
+	    -selectcolor $bg
+
+	$CloseButton configure -background $bg -foreground $fg
     }
 
     method onReleaseCloseButton {} {
@@ -209,21 +215,29 @@ oo::class create ::tkcon::TabButton {
 
     method onEnterCloseButton {} {
 	namespace upvar ::tkcon COLOR C
+	set sel [my selected]
 	event generate $Container <Enter>
-	$CloseButton configure -background $C(tab-hover-bg)
+	$CloseButton configure \
+	    -background [expr {$sel ? $C(tab-hover-bg) : $C(tab-bg)}] \
+	    -foreground [expr {$sel ? $C(tab-hover-fg) : $C(tab-fg)}]
     }
 
     method onLeaveCloseButton {} {
-	$CloseButton configure -background [$Container cget -background]
+	$CloseButton configure -background [$Content cget -background]
     }
 
     method onEnterContainer {} {
 	namespace upvar ::tkcon COLOR C
-	if {! [my selected]} {
-	    $Container configure -background $C(tab-hover-bg)
-	}
-	$Content configure -background [$Container cget -background]
-	$CloseButton configure -background [$Container cget -background]
+	set sel [my selected]
+	set bg [expr {$sel ? $C(tab-selected-bg) : $C(tab-hover-bg)}]
+	set fg [expr {$sel ? $C(tab-selected-fg) : $C(tab-hover-fg)}]
+
+	$Content configure \
+	    -background $bg -foreground $fg \
+	    -activebackground $bg -activeforeground $fg \
+	    -selectcolor $bg
+
+	$CloseButton configure -background $bg -foreground $fg
     }
 }
 
@@ -886,8 +900,6 @@ proc ::tkcon::InitUI {title} {
 
     set PRIV(statusbar) [set sbar [ttk::frame $w.fstatus]]
     set PRIV(tabframe)  [set tabs [ttk::frame $w.tabs]]
-    ttk::separator $tabs.sep -orient vertical
-    pack $tabs.sep -side bottom -fill x -expand 1
 
     ttk::label $sbar.cursor -relief sunken -anchor e -width 6 -textvariable ::tkcon::PRIV(StatusCursor)
 
