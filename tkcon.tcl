@@ -25,7 +25,7 @@
 ## Thanks to the following (among many) for early bug reports & code ideas:
 ## Steven Wahl, Jan Nijtmans, Mark Crimmins, Wart
 ##
-## Copyright (c) 1995-2011 Jeffrey Hobbs, jeff(a)hobbs(.)org
+## Copyright (c) 1995-2016 Jeffrey Hobbs.
 ## Initiated: Thu Aug 17 15:36:47 PDT 1995
 ##
 ## source standard_disclaimer.tcl
@@ -568,7 +568,6 @@ proc ::tkcon::Init {args} {
 	HEADURL		{http://tkcon.cvs.sourceforge.net/viewvc/tkcon/tkcon/tkcon.tcl}
 
 	docs		"file:%%DOCSDIR%%/index.html"
-	email		{jeff(a)hobbs(.)org}
 	root		.
 	uid		0
 	tabs		{}
@@ -1765,26 +1764,26 @@ proc ::tkcon::About {} {
 	wm transient $w $PRIV(root)
 	wm group $w $PRIV(root)
 	catch {wm attributes $w -type dialog}
-	wm title $w "About tkcon v$PRIV(version)"
+	wm title $w "About Tkcon"
 	wm resizable $w 0 0
 	set parent [winfo parent $w]
 	set x [expr {[winfo x $parent] + 100}]
 	set y [expr {[winfo y $parent] + 100}]
 	wm geometry $w [format %+d%+d $x $y]
-	ttk::button $w.b -text Dismiss -command [list wm withdraw $w]
-	text $w.text -height 9 -width 60 -font $OPT(font) -borderwidth 1 -highlightthickness 0
-	grid $w.text -sticky news
-	grid $w.b -sticky se -padx 6 -pady 4
-	$w.text tag config center -justify center
-	$w.text tag config title  -justify center -font tkcon-fixed-large
-	# strip down the RCS info displayed in the about box
-	regexp {,v ([0-9\./: ]*)} $PRIV(RCS) -> RCS
-	$w.text insert 1.0 "About tkcon v$PRIV(version)" title \
-		"\n\nCopyright 1995-2002 Jeffrey Hobbs, $PRIV(email)\
-		\nRelease Info: v$PRIV(version), CVS v$RCS\
-		\nDocumentation available at:\n$PRIV(docs)\
-		\nUsing: Tcl v$tcl_patchLevel / Tk v$tk_patchLevel" center
-	$w.text config -state disabled
+	set button [ttk::button $w.b -text Dismiss -command [list wm withdraw $w]]
+	set about_text    "\n\nCopyright \u00A9 1995-2025, Jeffrey Hobbs &co."
+	append about_text "\nUsing: Tcl v$tcl_patchLevel / Tk v$tk_patchLevel"
+	set text [text $w.text]
+	$text tag config center -justify center -font tkcon-sans-serif
+	$text tag config title  -justify center -font tkcon-sans-serif-bold
+	$text insert 1.0 "\nTkcon version $PRIV(version)" title $about_text center
+	$text config -state disabled
+	set cols 40
+	set rows [CalcRowsFromCols $cols]
+	$text config -width $cols -height $rows
+	pack $text -fill both -expand 1
+	set padding [expr {int([font measure tkcon-sans-serif-small "M"] / 2.0)}]
+	pack $button -side bottom -expand 1 -anchor sw -padx $padding -pady $padding
 	bind $w <Escape> [list destroy $w]
     }
     wm deiconify $w
