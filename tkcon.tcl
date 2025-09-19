@@ -69,9 +69,6 @@ foreach pkg [info loaded {}] {
     }
 }
 
-#source [file join [file dirname [info script]] spectrum.tcl]
-#::spectrum::theme use
-
 # Unset temporary global vars
 catch {unset pkg file name version}
 
