@@ -146,11 +146,11 @@ oo::class create ::tkcon::TabButton {
 
 	frame $Container
 
-	radiobutton $Content -font tkcon-sans-serif -borderwidth 0 -indicatoron 0 \
+	radiobutton $Content -borderwidth 0 -indicatoron 0 \
 	    -variable ::tkcon::PRIV(curtab) -value $con \
 	    -text $tabname -command [list ::tkcon::GotoTab $con]
 
-	label $CloseButton -text "\u00D7" -font tkcon-sans-serif
+	label $CloseButton -text "\u00D7"
 
 	# Force the close button to a square
 	set current_width  [winfo reqwidth $CloseButton]
@@ -159,10 +159,8 @@ oo::class create ::tkcon::TabButton {
 	set ipad_x [expr {($target_size - $current_width) / 2}]
 	set ipad_y [expr {($target_size - $current_height) / 2}]
 
-	set separator [ttk::separator $Container.sep]
 	grid $CloseButton -row 0 -column 0 -ipadx $ipad_x -ipady $ipad_y -sticky nsew
 	grid $Content     -row 0 -column 1 -sticky nsew
-	grid $separator   -row 0 -column 2 -sticky ns
 	grid columnconfigure $Container 1 -weight 1
 	grid rowconfigure    $Container 0 -weight 1
 
@@ -282,12 +280,15 @@ proc ::tkcon::CalcRowsFromCols {cols} {
 }
 
 ## ::tkcon::InitFonts - determine best available fixed & sans-serif fonts used by TkCon.
-## Creates fonts tkcon-fixed, tkcon-fixed-bold, tkcon-fixed-large, tkcon-fixed-small
-## that should be used throughout the application.
+# Creates fonts tkcon-fixed, tkcon-fixed-bold, tkcon-fixed-large, tkcon-fixed-small,
+# tkcon-fixed-extra-small, tkcon-sans-serif, tkcon-sans-serif-bold, tkcon-sans-serif-large,
+# tkcon-sans-serif-small, tkcon-sans-serif-extra-small.
 ##
 proc ::tkcon::InitFonts {} {
     variable OPT
     variable PRIV
+
+    set font_size_default [expr {-int([tk scaling] * 12)}] ;# Note: 12 px (not point)
 
     if {![info exists OPT(font)]} {
 	set fixed_family [::apply {{} {
@@ -304,7 +305,7 @@ proc ::tkcon::InitFonts {} {
 	    return "Courier"
 	}}]
 
-	font create tkcon-fixed -family $fixed_family -size 12
+	font create tkcon-fixed -family $fixed_family -size $font_size_default
 	set OPT(font) tkcon-fixed
 
     } else {
@@ -316,11 +317,14 @@ proc ::tkcon::InitFonts {} {
 	-size [font configure tkcon-fixed -size] \
 	-weight bold
 
+    font create tkcon-fixed-extra-small -family [font configure tkcon-fixed -family] \
+	-size [expr {int(0.6875 * [font configure tkcon-fixed -size])}]
+
     font create tkcon-fixed-small -family [font configure tkcon-fixed -family] \
-	-size [expr {int(0.75 * [font configure tkcon-fixed -size])}]
+	-size [expr {int(0.875 * [font configure tkcon-fixed -size])}]
 
     font create tkcon-fixed-large -family [font configure tkcon-fixed -family] \
-	-size [expr {int(1.33333333 * [font configure tkcon-fixed -size])}]
+	-size [expr {int(1.125 * [font configure tkcon-fixed -size])}]
 
     set PRIV(fontsize) [expr {abs([font configure tkcon-fixed -size])}]
 
@@ -339,24 +343,26 @@ proc ::tkcon::InitFonts {} {
 	    return "Helvetica"
 	}}]
 
-	font create tkcon-sans-serif -family $sans_serif_family -size 12
+	font create tkcon-sans-serif -family $sans_serif_family -size $font_size_default
 	set OPT(font-sans-serif) tkcon-sans-serif
 
     } else {
 	font create tkcon-sans-serif -family [font configure $OPT(font-sans-serif) -family] \
 	    -size [font configure $OPT(font-sans-serif) -size]
     }
+
     font create tkcon-sans-serif-bold -family [font configure tkcon-sans-serif -family] \
 	-size [font configure tkcon-sans-serif -size] \
 	-weight bold
 
+    font create tkcon-sans-serif-extra-small -family [font configure tkcon-sans-serif -family] \
+	-size [expr {int(0.6875 * [font configure tkcon-sans-serif -size])}]
+
     font create tkcon-sans-serif-small -family [font configure tkcon-sans-serif -family] \
-	-size [expr {int(0.75 * [font configure tkcon-sans-serif -size])}]
+	-size [expr {int(0.875 * [font configure tkcon-sans-serif -size])}]
 
     font create tkcon-sans-serif-large -family [font configure tkcon-sans-serif -family] \
-	-size [expr {int(1.33333333 * [font configure tkcon-sans-serif -size])}]
-
-    option add *Text.font tkcon-fixed 100 ;# Higher priority will override any theme fonts
+	-size [expr {int(1.125 * [font configure tkcon-sans-serif -size])}]
 }
 
 ## ::tkcon::DarkModeSetting - detects dark mode
@@ -485,10 +491,6 @@ proc ::tkcon::Init {args} {
 			     tab-hover-bg    [expr {$OPT(darkmode) ? "#1B1B1B" : "#F8F8F8"}] \
 			     tab-selected-bg [expr {$OPT(darkmode) ? "#222222" : "#FFFFFF"}] \
 			   ]
-
-    option add *Text.background $bg_color   100
-    option add *Text.foreground $body_color 100
-    option add *Text.insertBackground $body_color 100
 
     foreach {key default} $color_defaults {
 	if {![info exists COLOR($key)]} { set COLOR($key) $default }
@@ -735,6 +737,12 @@ proc ::tkcon::Init {args} {
     option add $optclass*Menu.tearOff 0
     option add $optclass*Menu.borderWidth 1
     option add $optclass*Menu.activeBorderWidth 1
+    option add $optclass*font tkcon-sans-serif-small
+    option add $optclass*Text.font tkcon-fixed       100 ;# High priority to override themes
+    option add $optclass*Text.background $bg_color   100
+    option add $optclass*Text.foreground $body_color 100
+    option add $optclass*Text.insertBackground $body_color 100
+    option add $optclass*Text.relief flat
     if {!$PRIV(AQUA)} {
 	option add $optclass*Scrollbar.borderWidth 1
     }
@@ -2113,10 +2121,8 @@ proc ::tkcon::InterpPkgs {app type} {
 
 	ttk::label $t.ll -text "Loadable:" -anchor w
 	ttk::label $t.lr -text "Loaded:" -anchor w
-	listbox $t.loadable -font tkcon-fixed -background white -borderwidth 1 \
-	    -yscrollcommand [list $t.llsy set] -selectmode extended
-	listbox $t.loaded -font tkcon-fixed -background white -borderwidth 1 \
-	    -yscrollcommand [list $t.lrsy set]
+	listbox $t.loadable -yscrollcommand [list $t.llsy set] -selectmode extended
+	listbox $t.loaded   -yscrollcommand [list $t.lrsy set]
 	ttk::scrollbar $t.llsy -command [list $t.loadable yview]
 	ttk::scrollbar $t.lrsy -command [list $t.loaded yview]
 	ttk::button $t.load -text ">>" \
@@ -2531,8 +2537,9 @@ proc ::tkcon::fontchooserHandler {font args} {
 
     font configure tkcon-fixed {*}$list
     font configure tkcon-fixed-bold {*}$list -weight bold
-    font configure tkcon-fixed-large {*}$list -weight bold -size [expr {$attrs(-size)+4}]
-    font configure tkcon-fixed-small {*}$list -weight bold -size [expr {$attrs(-size)-4}]
+    font configure tkcon-fixed-large {*}$list -size [expr {int(1.125 * $attrs(-size))}]
+    font configure tkcon-fixed-small {*}$list -size [expr {int(0.875 * $attrs(-size))}]
+    font configure tkcon-fixed-extra-small {*}$list -size [expr {int(0.6875 * $attrs(-size))}]
     tkcon font {*}$list
 }
 
@@ -5507,14 +5514,13 @@ proc ::tkcon::ResizeSet {incr} {
 	return
     }
 
-    foreach name [list tkcon-fixed tkcon-fixed-bold tkcon-fixed-large tkcon-fixed-small] {
+    foreach name [list tkcon-fixed tkcon-fixed-bold tkcon-fixed-large tkcon-fixed-small tkcon-fixed-extra-small] {
 	set size [font configure $name -size]
-	font configure $name -size [incr size $incr]
+	font configure $name -size [incr size [expr {$size < 0 ? -$incr : $incr}]]
     }
 
     tkcon font {*}[font actual tkcon-fixed]
     $::tkcon::PRIV(console) configure -font tkcon-fixed
-#   $::tkcon::PRIV(menubar) configure -font tkcon-fixed
 }
 
 ############################################################################
