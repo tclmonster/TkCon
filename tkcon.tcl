@@ -223,7 +223,8 @@ oo::class create ::tkcon::TabButton {
     }
 
     method onLeaveCloseButton {} {
-	$CloseButton configure -background [$Content cget -background]
+	$CloseButton configure -background [$Content cget -background] \
+	    -foreground [$Content cget -foreground]
     }
 
     method onEnterContainer {} {
@@ -403,26 +404,30 @@ proc ::tkcon::Init {args} {
 	set OPT(darkmode) [DarkModeSetting]
     }
 
-    set color_defaults {
-	stderr   "#F03823"
-	var      "#4B75FF"
-	proc     "#4B75FF"
-	blink-bg "#4B75FF"
-	blink-fg "#FFFFFF"
-	find-bg  "#F5C700"
-	find-fg  "#000000"
-    }
+    set bg_color     [expr {$OPT(darkmode) ? "#222222" : "#FFFFFF"}]
+    set body_color   [expr {$OPT(darkmode) ? "#DBDBDB" : "#292929"}]
+    set accent_color [expr {$OPT(darkmode) ? "#5681FF" : "#4B75FF"}]
 
-    lappend color_defaults stdin  [ttk::style lookup . -foreground]
-    lappend color_defaults stdout [ttk::style lookup . -foreground]
-    lappend color_defaults prompt [ttk::style lookup . -foreground]
+    set color_defaults [list stderr   [expr {$OPT(darkmode) ? "#D73220" : "#F03823"}] \
+			     stdin    $body_color \
+			     stdout   $body_color \
+			     prompt   $body_color \
+			     var      $accent_color \
+			     proc     $accent_color \
+			     find-bg  [expr {$OPT(darkmode) ? "#E06400" : "#D45B00"}] \
+			     find-fg  "#000000" \
+			     blink-bg $accent_color \
+			     blink-fg "#FFFFFF" \
+			     tab-fg          [expr {$OPT(darkmode) ? "#8A8A8A" : "#717171"}] \
+			     tab-hover-fg    [expr {$OPT(darkmode) ? "#AFAFAF" : "#505050"}] \
+			     tab-selected-fg [expr {$OPT(darkmode) ? "#DBDBDB" : "#292929"}] \
+			     tab-bg          [expr {$OPT(darkmode) ? "#111111" : "#E9E9E9"}] \
+			     tab-hover-bg    [expr {$OPT(darkmode) ? "#1B1B1B" : "#F8F8F8"}] \
+			     tab-selected-bg [expr {$OPT(darkmode) ? "#222222" : "#FFFFFF"}] \
+			   ]
 
-    lappend color_defaults tab-fg black
-    lappend color_defaults tab-bg "#E1E1E1"
-    lappend color_defaults tab-selected-fg black
-    lappend color_defaults tab-selected-bg "#F3F3F3"
-    lappend color_defaults tab-hover-fg black
-    lappend color_defaults tab-hover-bg "#E9E9E9"
+    option add *Text.background $bg_color
+    option add *Text.foreground $body_color
 
     foreach {key default} $color_defaults {
 	if {![info exists COLOR($key)]} { set COLOR($key) $default }
