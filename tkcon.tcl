@@ -490,6 +490,7 @@ proc ::tkcon::Init {args} {
 			     tab-bg          [expr {$OPT(darkmode) ? "#111111" : "#E9E9E9"}] \
 			     tab-hover-bg    [expr {$OPT(darkmode) ? "#1B1B1B" : "#F8F8F8"}] \
 			     tab-selected-bg [expr {$OPT(darkmode) ? "#222222" : "#FFFFFF"}] \
+			     status-fg [expr {$OPT(darkmode) ? "#AFAFAF" : "#505050"}] \
 			   ]
 
     foreach {key default} $color_defaults {
@@ -938,7 +939,7 @@ proc ::tkcon::InitInterp {name type} {
     ## Don't allow messing up a local master interpreter
     if {($type eq "namespace")
 	|| (($type eq "child") &&
-	    [regexp {^([Mm]ain|Child[0-9]+)$} $name])} { return }
+	    [regexp {^([Mm]ain|Interp[0-9]+)$} $name])} { return }
     set old [Attach]
     set oldname $PRIV(namesp)
     catch {
@@ -1006,11 +1007,13 @@ proc ::tkcon::InitUI {title} {
     set PRIV(statusbar) [set sbar [ttk::frame $w.fstatus]]
     set PRIV(tabframe)  [set tabs [ttk::frame $w.tabs]]
 
-    ttk::label $sbar.cursor -relief sunken -anchor e -width 6 -textvariable ::tkcon::PRIV(StatusCursor)
-
-    set padx [expr {![info exists ::tcl_platform(os)] || ($::tcl_platform(os) ne "Windows CE")}]
-
-    grid $sbar.cursor -sticky e -padx $padx
+    set statusbar_padx [expr {int(2.0 * [font measure tkcon-sans-serif-small "M"])}]
+    set cursor_pad_right [expr {int(2.0 * $statusbar_padx)}]
+    ttk::style configure Statusbar.TLabel -foreground $COLOR(status-fg)
+    ttk::label $sbar.appname -style Statusbar.TLabel -textvariable ::tkcon::PRIV(appname)
+    ttk::label $sbar.cursor  -style Statusbar.TLabel -textvariable ::tkcon::PRIV(StatusCursor)
+    grid $sbar.appname -row 0 -column 0 -sticky e -padx $statusbar_padx
+    grid $sbar.cursor  -row 0 -column 1 -padx [list 0 $cursor_pad_right]
     grid columnconfigure $sbar 0 -weight 1
 
     ## Create console tab
@@ -1729,11 +1732,11 @@ proc ::tkcon::Prompt {{pre {}} {post {}} {prompt {}}} {
     set i [$w index end-1c]
     if {!$OPT(showstatusbar)} {
 	if {$PRIV(appname) ne ""} {
-	    $w insert end ">$PRIV(appname)< " prompt
+	    $w insert end "\[$PRIV(appname)\] " prompt
 	}
-	if {$PRIV(namesp) ne "::"} {
-	    $w insert end "<$PRIV(namesp)> " prompt
-	}
+    }
+    if {$PRIV(namesp) ne "::"} {
+	$w insert end "\[$PRIV(namesp)\] " prompt
     }
     if {$prompt ne ""} {
 	$w insert end $prompt prompt
@@ -1748,15 +1751,6 @@ proc ::tkcon::Prompt {{pre {}} {post {}} {prompt {}}} {
     ConstrainBuffer $w $OPT(buffer)
     set ::tkcon::PRIV(StatusCursor) [$w index insert]
     $w see end
-}
-proc ::tkcon::RePrompt {{pre {}} {post {}} {prompt {}}} {
-    # same as prompt, but does nothing for those actions where we
-    # only wanted to refresh the prompt on attach change when the
-    # statusbar is showing (which carries that info instead)
-    variable OPT
-    if {!$OPT(showstatusbar)} {
-	Prompt $pre $post $prompt
-    }
 }
 
 ## ::tkcon::About - gives about info for tkcon
@@ -2222,8 +2216,8 @@ proc ::tkcon::AttachMenu m {
     foreach {i j} $tmp { set tknames($j) {} }
 
     $m delete 0 end
-    set cmd {::tkcon::RePrompt \n [::tkcon::CmdGet $::tkcon::PRIV(console)]}
-    $m add radio -label {None (use local child) } -accel $PRIV(ACC)1 \
+    set cmd {::tkcon::Prompt \n [::tkcon::CmdGet $::tkcon::PRIV(console)]}
+    $m add radio -label {None (use local interpreter) } -accel $PRIV(ACC)1 \
 	    -variable ::tkcon::PRIV(app) \
 	    -value [concat $::tkcon::PRIV(name) $::tkcon::OPT(exec)] \
 	    -command "::tkcon::Attach {}; $cmd"
@@ -2238,7 +2232,7 @@ proc ::tkcon::AttachMenu m {
     $m add command -label "tkcon Interpreters" -state disabled
     foreach i [lsort [array names interps]] {
 	if {$interps($i) eq ""} { set interps($i) "no Tk" }
-	if {[regexp {^Child[0-9]+} $i]} {
+	if {[regexp {^Interp[0-9]+} $i]} {
 	    set opts [list -label "$i ($interps($i))" \
 		    -variable ::tkcon::PRIV(app) -value $i \
 		    -command "::tkcon::Attach [list $i] child; $cmd"]
@@ -2265,7 +2259,7 @@ proc ::tkcon::AttachMenu m {
 ##
 proc ::tkcon::DisplayMenu m {
     $m delete 0 end
-    set cmd {::tkcon::RePrompt \n [::tkcon::CmdGet $::tkcon::PRIV(console)]}
+    set cmd {::tkcon::Prompt \n [::tkcon::CmdGet $::tkcon::PRIV(console)]}
 
     $m add command -label "New Display" -command ::tkcon::NewDisplay
     foreach disp [Display] {
@@ -2284,7 +2278,7 @@ proc ::tkcon::DisplayMenu m {
 ##
 proc ::tkcon::SocketMenu m {
     $m delete 0 end
-    set cmd {::tkcon::RePrompt \n [::tkcon::CmdGet $::tkcon::PRIV(console)]}
+    set cmd {::tkcon::Prompt \n [::tkcon::CmdGet $::tkcon::PRIV(console)]}
 
     $m add command -label "Create Connection" \
 	    -command "::tkcon::NewSocket; $cmd"
@@ -2308,7 +2302,7 @@ proc ::tkcon::NamespaceMenu m {
     }
 
     ## Same command as for ::tkcon::AttachMenu items
-    set cmd {::tkcon::RePrompt \n [::tkcon::CmdGet $::tkcon::PRIV(console)]}
+    set cmd {::tkcon::Prompt \n [::tkcon::CmdGet $::tkcon::PRIV(console)]}
 
     set names [lsort [Namespaces ::]]
     if {[llength $names] > $OPT(maxmenu)} {
@@ -2345,10 +2339,9 @@ proc ::tkcon::NamespacesList {names} {
     set x [expr {[winfo x $parent] + 100}]
     set y [expr {[winfo y $parent] + 100}]
     wm geometry $f [format %+d%+d $x $y]
-   listbox $f.names -width 30 -height 15 -selectmode single \
+    listbox $f.names -width 30 -height 15 -selectmode single \
 	-yscrollcommand [list $f.scrollv set] \
-	-xscrollcommand [list $f.scrollh set] \
-	-background white -borderwidth 1
+	-xscrollcommand [list $f.scrollh set]
     ttk::scrollbar $f.scrollv -command [list $f.names yview]
     ttk::scrollbar $f.scrollh -command [list $f.names xview] -orient horizontal
     ttk::frame $f.buttons
@@ -2373,7 +2366,7 @@ proc ::tkcon::NamespacesList {names} {
     bind $f.names <Double-1> {
 	## Catch in case the namespace disappeared on us
 	catch { ::tkcon::AttachNamespace [%W get [%W nearest %y]] }
-	::tkcon::RePrompt "\n" [::tkcon::CmdGet $::tkcon::PRIV(console)]
+	::tkcon::Prompt "\n" [::tkcon::CmdGet $::tkcon::PRIV(console)]
 	destroy [winfo toplevel %W]
     }
 }
@@ -2887,10 +2880,10 @@ proc ::tkcon::MainInit {} {
 
     proc ::tkcon::GetChild {{child {}}} {
 	set i 0
-	while {[Child $child [list interp exists Child[incr i]]]} {
+	while {[Child $child [list interp exists Interp[incr i]]]} {
 	    # oh my god, an empty loop!
 	}
-	set interp [Child $child [list interp create Child$i]]
+	set interp [Child $child [list interp create Interp$i]]
 	return $interp
     }
 
@@ -5670,7 +5663,7 @@ proc ::tkcon::Bindings {} {
     bind $PRIV(root) <<TkCon_Find>>     { ::tkcon::FindBox }
     bind $PRIV(root) <<TkCon_Child>>    {
 	::tkcon::Attach {}
-	::tkcon::RePrompt "\n" [::tkcon::CmdGet $::tkcon::PRIV(console)]
+	::tkcon::Prompt "\n" [::tkcon::CmdGet $::tkcon::PRIV(console)]
     }
     bind $PRIV(root) <<TkCon_Master>>	{
 	if {[string compare {} $::tkcon::PRIV(name)]} {
@@ -5678,11 +5671,11 @@ proc ::tkcon::Bindings {} {
 	} else {
 	    ::tkcon::Attach Main
 	}
-	::tkcon::RePrompt "\n" [::tkcon::CmdGet $::tkcon::PRIV(console)]
+	::tkcon::Prompt "\n" [::tkcon::CmdGet $::tkcon::PRIV(console)]
     }
     bind $PRIV(root) <<TkCon_Main>>	{
 	::tkcon::Attach Main
-	::tkcon::RePrompt "\n" [::tkcon::CmdGet $::tkcon::PRIV(console)]
+	::tkcon::Prompt "\n" [::tkcon::CmdGet $::tkcon::PRIV(console)]
     }
     bind $PRIV(root) <<TkCon_Popup>> {
 	::tkcon::PopupMenu %X %Y
