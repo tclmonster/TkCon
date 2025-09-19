@@ -186,6 +186,7 @@ oo::class create ::tkcon::TabButton {
 	    -background [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}] \
 	    -foreground [expr {$sel ? $C(tab-selected-fg) : $C(tab-fg)}] \
 	    -activebackground [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}] \
+	    -activeforeground [expr {$sel ? $C(tab-selected-fg) : $C(tab-fg)}] \
 	    -selectcolor [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}]
 
 	$CloseButton configure \
@@ -302,7 +303,10 @@ proc ::tkcon::InitFonts {} {
 	    }
 	    return "Courier"
 	}}]
+
 	font create tkcon-fixed -family $fixed_family -size 12
+	set OPT(font) tkcon-fixed
+
     } else {
 	font create tkcon-fixed -family [font configure $OPT(font) -family] \
 	    -size [font configure $OPT(font) -size]
@@ -334,7 +338,10 @@ proc ::tkcon::InitFonts {} {
 	    }
 	    return "Helvetica"
 	}}]
+
 	font create tkcon-sans-serif -family $sans_serif_family -size 12
+	set OPT(font-sans-serif) tkcon-sans-serif
+
     } else {
 	font create tkcon-sans-serif -family [font configure $OPT(font-sans-serif) -family] \
 	    -size [font configure $OPT(font-sans-serif) -size]
@@ -379,6 +386,52 @@ proc ::tkcon::DarkModeSetting {} {
     return $darkmode
 }
 
+proc ::tkcon::HexToBGR {color} {
+    if {[scan $color "#%2x%2x%2x" r g b] != 3} {
+	return -code error "Invalid hex color format: $color"
+    }
+    return [expr {($b << 16) | ($g << 8) | $r}]
+}
+
+proc ::tkcon::SetWindowColor {window color} {
+    variable PRIV
+    if {!$PRIV(WIN32) || [catch {package require cffi}]} {
+	return
+    }
+
+    cffi::alias load win32
+    cffi::Wrapper create dwmapi [file join $::env(windir) system32 dwmapi.dll]
+    cffi::Wrapper create user32 [file join $::env(windir) system32 user32.dll]
+
+    cffi::alias define HRESULT {long nonnegative winerror}
+    dwmapi stdcall DwmSetWindowAttribute HRESULT {
+	hwnd pointer.HWND dwAttribute DWORD pvAttribute pointer	cbAttribute DWORD
+    }
+
+    user32 stdcall GetParent pointer.HWND {
+	hwnd pointer.HWND
+    }
+
+    proc ::tkcon::SetWindowColor {window color} {
+	set DWMWA_CAPTION_COLOR 35
+	set hwndptr [cffi::pointer make [winfo id $window] HWND]
+	cffi::pointer safe $hwndptr
+	set parentptr [GetParent $hwndptr]
+
+	set colorptr [cffi::arena pushframe DWORD]
+	cffi::memory set $colorptr DWORD [HexToBGR $color]
+
+	set size [cffi::type size DWORD]
+	DwmSetWindowAttribute $parentptr $DWMWA_CAPTION_COLOR $colorptr $size
+
+	cffi::arena popframe
+	cffi::pointer dispose $hwndptr
+	cffi::pointer dispose $parentptr
+    }
+
+    tailcall ::tkcon::SetWindowColor $window $color
+}
+
 ## ::tkcon::Init - inits tkcon
 #
 # Calls:	::tkcon::InitUI
@@ -404,6 +457,13 @@ proc ::tkcon::Init {args} {
 	set OPT(darkmode) [DarkModeSetting]
     }
 
+    if {$PRIV(WIN32) && $OPT(darkmode)} {
+	set window_color "#2C2C2C"
+	foreach class [list [winfo class .] Toplevel] {
+	    bind $class <Map> [list ::tkcon::SetWindowColor %W $window_color]
+	}
+    }
+
     set bg_color     [expr {$OPT(darkmode) ? "#222222" : "#FFFFFF"}]
     set body_color   [expr {$OPT(darkmode) ? "#DBDBDB" : "#292929"}]
     set accent_color [expr {$OPT(darkmode) ? "#5681FF" : "#4B75FF"}]
@@ -426,8 +486,9 @@ proc ::tkcon::Init {args} {
 			     tab-selected-bg [expr {$OPT(darkmode) ? "#222222" : "#FFFFFF"}] \
 			   ]
 
-    option add *Text.background $bg_color
-    option add *Text.foreground $body_color
+    option add *Text.background $bg_color   100
+    option add *Text.foreground $body_color 100
+    option add *Text.insertBackground $body_color 100
 
     foreach {key default} $color_defaults {
 	if {![info exists COLOR($key)]} { set COLOR($key) $default }
