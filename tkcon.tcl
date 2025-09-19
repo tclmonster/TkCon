@@ -25,7 +25,7 @@
 ## Thanks to the following (among many) for early bug reports & code ideas:
 ## Steven Wahl, Jan Nijtmans, Mark Crimmins, Wart
 ##
-## Copyright (c) 1995-2011 Jeffrey Hobbs, jeff(a)hobbs(.)org
+## Copyright (c) 1995-2016 Jeffrey Hobbs.
 ## Initiated: Thu Aug 17 15:36:47 PDT 1995
 ##
 ## source standard_disclaimer.tcl
@@ -143,11 +143,11 @@ oo::class create ::tkcon::TabButton {
 
 	frame $Container
 
-	radiobutton $Content -font tkconuismall -borderwidth 0 -indicatoron 0 \
+	radiobutton $Content -borderwidth 0 -indicatoron 0 \
 	    -variable ::tkcon::PRIV(curtab) -value $con \
 	    -text $tabname -command [list ::tkcon::GotoTab $con]
 
-	label $CloseButton -text "\u00D7" -font tkconui
+	label $CloseButton -text "\u00D7"
 
 	# Force the close button to a square
 	set current_width  [winfo reqwidth $CloseButton]
@@ -156,10 +156,8 @@ oo::class create ::tkcon::TabButton {
 	set ipad_x [expr {($target_size - $current_width) / 2}]
 	set ipad_y [expr {($target_size - $current_height) / 2}]
 
-	set separator [ttk::separator $Container.sep]
-	grid $CloseButton -row 0 -column 0 -ipadx $ipad_x -ipady $ipad_y
+	grid $CloseButton -row 0 -column 0 -ipadx $ipad_x -ipady $ipad_y -sticky nsew
 	grid $Content     -row 0 -column 1 -sticky nsew
-	grid $separator   -row 0 -column 2 -sticky ns
 	grid columnconfigure $Container 1 -weight 1
 	grid rowconfigure    $Container 0 -weight 1
 
@@ -174,25 +172,35 @@ oo::class create ::tkcon::TabButton {
     }
 
     method refreshColors {} {
-	namespace upvar ::tkcon COLOR COLOR
-	if {[my selected]} {
-	    $Container configure -background $COLOR(ui,selectedBg)
-	} else {
-	    $Container configure -background $COLOR(ui,normalBg)
-	}
-	set bg [$Container cget -background]
-	$Content configure -background $bg -activebackground $bg -highlightbackground $bg \
-	    -selectcolor $bg
-	$CloseButton configure -background $bg
+	namespace upvar ::tkcon COLOR C
+	set sel [my selected]
+	$Container configure \
+	    -background [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}]
+
+	$Content configure \
+	    -background [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}] \
+	    -foreground [expr {$sel ? $C(tab-selected-fg) : $C(tab-fg)}] \
+	    -activebackground [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}] \
+	    -activeforeground [expr {$sel ? $C(tab-selected-fg) : $C(tab-fg)}] \
+	    -selectcolor [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}]
+
+	$CloseButton configure \
+	    -background [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}] \
+	    -foreground [expr {$sel ? $C(tab-selected-fg) : $C(tab-fg)}]
     }
 
     method onLeaveContainer {} {
-	namespace upvar ::tkcon COLOR COLOR
-	if {! [my selected]} {
-	    $Container configure -background $COLOR(ui,normalBg)
-	}
-	$Content configure -background [$Container cget -background]
-	$CloseButton configure -background [$Container cget -background]
+	namespace upvar ::tkcon COLOR C
+	set sel [my selected]
+	set bg [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}]
+	set fg [expr {$sel ? $C(tab-selected-fg) : $C(tab-fg)}]
+
+	$Content configure \
+	    -background $bg -foreground $fg \
+	    -activebackground $bg -activeforeground $fg \
+	    -selectcolor $bg
+
+	$CloseButton configure -background $bg -foreground $fg
     }
 
     method onReleaseCloseButton {} {
@@ -202,22 +210,31 @@ oo::class create ::tkcon::TabButton {
     }
 
     method onEnterCloseButton {} {
-	namespace upvar ::tkcon COLOR COLOR
+	namespace upvar ::tkcon COLOR C
+	set sel [my selected]
 	event generate $Container <Enter>
-	$CloseButton configure -background $COLOR(ui,selectedHoverBg)
+	$CloseButton configure \
+	    -background [expr {$sel ? $C(tab-hover-bg) : $C(tab-bg)}] \
+	    -foreground [expr {$sel ? $C(tab-hover-fg) : $C(tab-fg)}]
     }
 
     method onLeaveCloseButton {} {
-	$CloseButton configure -background [$Container cget -background]
+	$CloseButton configure -background [$Content cget -background] \
+	    -foreground [$Content cget -foreground]
     }
 
     method onEnterContainer {} {
-	namespace upvar ::tkcon COLOR COLOR
-	if {! [my selected]} {
-	    $Container configure -background $COLOR(ui,hoverBg)
-	}
-	$Content configure -background [$Container cget -background]
-	$CloseButton configure -background [$Container cget -background]
+	namespace upvar ::tkcon COLOR C
+	set sel [my selected]
+	set bg [expr {$sel ? $C(tab-selected-bg) : $C(tab-hover-bg)}]
+	set fg [expr {$sel ? $C(tab-selected-fg) : $C(tab-hover-fg)}]
+
+	$Content configure \
+	    -background $bg -foreground $fg \
+	    -activebackground $bg -activeforeground $fg \
+	    -selectcolor $bg
+
+	$CloseButton configure -background $bg -foreground $fg
     }
 }
 
@@ -247,8 +264,8 @@ proc ::tkcon::CalcRowsFromCols {cols} {
     # Ensure the console defaults to an aspect ratio harmonious with
     # screen proportions.
 
-    set char_width  [font measure tkconfixed "0"]
-    set char_height [font metrics tkconfixed -linespace]
+    set char_width  [font measure tkcon-fixed "0"]
+    set char_height [font metrics tkcon-fixed -linespace]
     set char_aspect [expr {double($char_height) / $char_width}]
 
     set screen_width  [winfo screenwidth .]
@@ -257,6 +274,165 @@ proc ::tkcon::CalcRowsFromCols {cols} {
 
     set rows [expr {int($cols * $screen_aspect / $char_aspect)}]
     return $rows
+}
+
+## ::tkcon::InitFonts - determine best available fixed & sans-serif fonts used by TkCon.
+# Creates fonts tkcon-fixed, tkcon-fixed-bold, tkcon-fixed-large, tkcon-fixed-small,
+# tkcon-fixed-extra-small, tkcon-sans-serif, tkcon-sans-serif-bold, tkcon-sans-serif-large,
+# tkcon-sans-serif-small, tkcon-sans-serif-extra-small.
+##
+proc ::tkcon::InitFonts {} {
+    variable OPT
+    variable PRIV
+
+    set font_size_default [expr {-int([tk scaling] * 12)}] ;# Note: 12 px (not point)
+
+    if {![info exists OPT(font)]} {
+	set fixed_family [::apply {{} {
+	    set families [switch -- [tk windowingsystem] {
+		win32   {expr {{"Cascadia Code" "Consolas" "Lucida Console" "Courier New"}}}
+		aqua    {expr {{"SF Mono" "Menlo" "Monaco"}}}
+		default {expr {{"Noto Sans Mono" "DejaVu Sans Mono" "Liberation Mono" "Ubuntu Mono"}}}
+	    }]
+	    foreach fam $families {
+		if {$fam in [font families]} {
+		    return $fam
+		}
+	    }
+	    return "Courier"
+	}}]
+
+	font create tkcon-fixed -family $fixed_family -size $font_size_default
+	set OPT(font) tkcon-fixed
+
+    } else {
+	font create tkcon-fixed -family [font configure $OPT(font) -family] \
+	    -size [font configure $OPT(font) -size]
+    }
+
+    font create tkcon-fixed-bold -family [font configure tkcon-fixed -family] \
+	-size [font configure tkcon-fixed -size] \
+	-weight bold
+
+    font create tkcon-fixed-extra-small -family [font configure tkcon-fixed -family] \
+	-size [expr {int(0.6875 * [font configure tkcon-fixed -size])}]
+
+    font create tkcon-fixed-small -family [font configure tkcon-fixed -family] \
+	-size [expr {int(0.875 * [font configure tkcon-fixed -size])}]
+
+    font create tkcon-fixed-large -family [font configure tkcon-fixed -family] \
+	-size [expr {int(1.125 * [font configure tkcon-fixed -size])}]
+
+    set PRIV(fontsize) [expr {abs([font configure tkcon-fixed -size])}]
+
+    if {![info exists OPT(font-sans-serif)]} {
+	set sans_serif_family [::apply {{} {
+	    set families [switch -- [tk windowingsystem] {
+		win32   {expr {{"Segoe UI" "Tahoma" "MS Sans Serif" "Arial"}}}
+		aqua    {expr {{"SF Pro Text" "Lucida Grande" "Geneva"}}}
+		default {expr {{"Noto Sans" "DejaVu Sans" "Liberation Sans" "Ubuntu"}}}
+	    }]
+	    foreach fam $families {
+		if {$fam in [font families]} {
+		    return $fam
+		}
+	    }
+	    return "Helvetica"
+	}}]
+
+	font create tkcon-sans-serif -family $sans_serif_family -size $font_size_default
+	set OPT(font-sans-serif) tkcon-sans-serif
+
+    } else {
+	font create tkcon-sans-serif -family [font configure $OPT(font-sans-serif) -family] \
+	    -size [font configure $OPT(font-sans-serif) -size]
+    }
+
+    font create tkcon-sans-serif-bold -family [font configure tkcon-sans-serif -family] \
+	-size [font configure tkcon-sans-serif -size] \
+	-weight bold
+
+    font create tkcon-sans-serif-extra-small -family [font configure tkcon-sans-serif -family] \
+	-size [expr {int(0.6875 * [font configure tkcon-sans-serif -size])}]
+
+    font create tkcon-sans-serif-small -family [font configure tkcon-sans-serif -family] \
+	-size [expr {int(0.875 * [font configure tkcon-sans-serif -size])}]
+
+    font create tkcon-sans-serif-large -family [font configure tkcon-sans-serif -family] \
+	-size [expr {int(1.125 * [font configure tkcon-sans-serif -size])}]
+}
+
+## ::tkcon::DarkModeSetting - detects dark mode
+# Outputs: true if dark mode is enabled, otherwise false
+##
+proc ::tkcon::DarkModeSetting {} {
+    variable PRIV
+    set darkmode 0
+    catch {
+	if {$PRIV(WIN32)} {
+	    package require registry
+	    set keypath {HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize}
+	    set darkmode [expr {[registry get $keypath AppsUseLightTheme] == 0}]
+
+	} elseif {$PRIV(AQUA)} {
+	    set istyle [exec defaults read -g AppleInterfaceStyle]
+	    set darkmode [expr {$istyle eq "Dark"}]
+
+	} else {
+	    set colorscheme_query {qdbus org.freedesktop.portal.Desktop /org/freedesktop/portal/desktop
+		org.freedesktop.portal.Settings.Read "org.freedesktop.appearance" "color-scheme"
+	    }
+	    set darkmode [expr {1 == [exec {*}$colorscheme_query]}]
+	}
+
+    }
+    return $darkmode
+}
+
+proc ::tkcon::HexToBGR {color} {
+    if {[scan $color "#%2x%2x%2x" r g b] != 3} {
+	return -code error "Invalid hex color format: $color"
+    }
+    return [expr {($b << 16) | ($g << 8) | $r}]
+}
+
+proc ::tkcon::SetWindowColor {window color} {
+    variable PRIV
+    if {!$PRIV(WIN32) || [catch {package require cffi}]} {
+	return
+    }
+
+    cffi::alias load win32
+    cffi::Wrapper create dwmapi [file join $::env(windir) system32 dwmapi.dll]
+    cffi::Wrapper create user32 [file join $::env(windir) system32 user32.dll]
+
+    cffi::alias define HRESULT {long nonnegative winerror}
+    dwmapi stdcall DwmSetWindowAttribute HRESULT {
+	hwnd pointer.HWND dwAttribute DWORD pvAttribute pointer	cbAttribute DWORD
+    }
+
+    user32 stdcall GetParent pointer.HWND {
+	hwnd pointer.HWND
+    }
+
+    proc ::tkcon::SetWindowColor {window color} {
+	set DWMWA_CAPTION_COLOR 35
+	set hwndptr [cffi::pointer make [winfo id $window] HWND]
+	cffi::pointer safe $hwndptr
+	set parentptr [GetParent $hwndptr]
+
+	set colorptr [cffi::arena pushframe DWORD]
+	cffi::memory set $colorptr DWORD [HexToBGR $color]
+
+	set size [cffi::type size DWORD]
+	DwmSetWindowAttribute $parentptr $DWMWA_CAPTION_COLOR $colorptr $size
+
+	cffi::arena popframe
+	cffi::pointer dispose $hwndptr
+	cffi::pointer dispose $parentptr
+    }
+
+    tailcall ::tkcon::SetWindowColor $window $color
 }
 
 ## ::tkcon::Init - inits tkcon
@@ -280,59 +456,43 @@ proc ::tkcon::Init {args} {
     ## the initial state before tkcon initializes itself.
     ##
 
-    # bg eq {} will get bg color from the main toplevel (in InitUI)
-    foreach {key default} {
-	bg		{}
-	blink		\#FFFF00
-	cursor		\#000000
-	disabled	\#4D4D4D
-	proc		\#008800
-	var		\#FFC0D0
-	prompt		\#8F4433
-	stdout		\#0000FF
-	stderr		\#FF0000
-    } {
+    if {! [info exists OPT(darkmode)]} {
+	set OPT(darkmode) [DarkModeSetting]
+    }
+
+    if {$PRIV(WIN32) && $OPT(darkmode)} {
+	set window_color "#2C2C2C"
+	foreach class [list [winfo class .] Toplevel] {
+	    bind $class <Map> [list ::tkcon::SetWindowColor %W $window_color]
+	}
+    }
+
+    set bg_color     [expr {$OPT(darkmode) ? "#222222" : "#FFFFFF"}]
+    set body_color   [expr {$OPT(darkmode) ? "#DBDBDB" : "#292929"}]
+    set accent_color [expr {$OPT(darkmode) ? "#5681FF" : "#4B75FF"}]
+
+    set color_defaults [list stderr   [expr {$OPT(darkmode) ? "#D73220" : "#F03823"}] \
+			     stdin    $body_color \
+			     stdout   $body_color \
+			     prompt   $body_color \
+			     var      $accent_color \
+			     proc     $accent_color \
+			     find-bg  [expr {$OPT(darkmode) ? "#E06400" : "#D45B00"}] \
+			     find-fg  "#000000" \
+			     blink-bg $accent_color \
+			     blink-fg "#FFFFFF" \
+			     tab-fg          [expr {$OPT(darkmode) ? "#8A8A8A" : "#717171"}] \
+			     tab-hover-fg    [expr {$OPT(darkmode) ? "#AFAFAF" : "#505050"}] \
+			     tab-selected-fg [expr {$OPT(darkmode) ? "#DBDBDB" : "#292929"}] \
+			     tab-bg          [expr {$OPT(darkmode) ? "#111111" : "#E9E9E9"}] \
+			     tab-hover-bg    [expr {$OPT(darkmode) ? "#1B1B1B" : "#F8F8F8"}] \
+			     tab-selected-bg [expr {$OPT(darkmode) ? "#222222" : "#FFFFFF"}] \
+			     status-fg [expr {$OPT(darkmode) ? "#AFAFAF" : "#505050"}] \
+			   ]
+
+    foreach {key default} $color_defaults {
 	if {![info exists COLOR($key)]} { set COLOR($key) $default }
     }
-
-    if {$PRIV(WIN32)} {
-	foreach {key default} {
-            ui,normalBg          systemButtonFace
-            ui,selectedBg        systemButtonHighlight
-            ui,hoverBg           system3dLight
-            ui,selectedHoverBg   systemAppWorkspace
-            ui,textColor         systemButtonText
-            ui,selectedTextColor systemHighlightText
-	} {
-	    if {![info exists COLOR($key)]} { set COLOR($key) $default }
-	}
-
-    } elseif {$PRIV(AQUA)} {
-	foreach {key default} {
-            ui,normalBg          systemWindowBackgroundColor2
-            ui,selectedBg        systemWindowBackgroundColor
-            ui,hoverBg           systemWindowBackgroundColor4
-            ui,selectedHoverBg   systemWindowBackgroundColor6
-            ui,textColor         systemTextColor
-            ui,selectedTextColor systemSelectedTextBackgroundColor
-	} {
-	    if {![info exists COLOR($key)]} { set COLOR($key) $default }
-	}
-
-    } else {
-	foreach {key default} {
-            ui,normalBg          \#d0d0d0
-            ui,selectedBg        \#f0f0f0
-            ui,hoverBg           \#b0b0b0
-            ui,selectedHoverBg   \#e8e8e8
-            ui,textColor          black
-            ui,selectedTextColor  black
-        } {
-	    if {![info exists COLOR($key)]} { set COLOR($key) $default }
-	}
-    }
-
-    set COLOR(stdin) [expr {[info exists COLOR(stdin)] ? $COLOR(stdin) : $COLOR(ui,textColor)}]
 
     foreach {key default} {
 	autoload	{}
@@ -346,7 +506,6 @@ proc ::tkcon::Init {args} {
 	dead		{}
 	edit		edit
 	expandorder	{Methodname Pathname Variable Procname}
-	font		{}
 	history		48
 	hoterrors	1
 	library		{}
@@ -375,6 +534,8 @@ proc ::tkcon::Init {args} {
     } {
 	if {![info exists OPT($key)]} { set OPT($key) $default }
     }
+
+    InitFonts
 
     set OPT(cols) [expr {[info exists OPT(cols)] ? $OPT(cols) : 100}]
     set OPT(rows) [expr {[info exists OPT(rows)] ? $OPT(rows) : [CalcRowsFromCols $OPT(cols)]}]
@@ -407,7 +568,6 @@ proc ::tkcon::Init {args} {
 	HEADURL		{http://tkcon.cvs.sourceforge.net/viewvc/tkcon/tkcon/tkcon.tcl}
 
 	docs		"file:%%DOCSDIR%%/index.html"
-	email		{jeff(a)hobbs(.)org}
 	root		.
 	uid		0
 	tabs		{}
@@ -574,6 +734,12 @@ proc ::tkcon::Init {args} {
     option add $optclass*Menu.tearOff 0
     option add $optclass*Menu.borderWidth 1
     option add $optclass*Menu.activeBorderWidth 1
+    option add $optclass*font tkcon-sans-serif-small
+    option add $optclass*Text.font tkcon-fixed       100 ;# High priority to override themes
+    option add $optclass*Text.background $bg_color   100
+    option add $optclass*Text.foreground $body_color 100
+    option add $optclass*Text.insertBackground $body_color 100
+    option add $optclass*Text.relief flat
     if {!$PRIV(AQUA)} {
 	option add $optclass*Scrollbar.borderWidth 1
     }
@@ -769,7 +935,7 @@ proc ::tkcon::InitInterp {name type} {
     ## Don't allow messing up a local master interpreter
     if {($type eq "namespace")
 	|| (($type eq "child") &&
-	    [regexp {^([Mm]ain|Child[0-9]+)$} $name])} { return }
+	    [regexp {^([Mm]ain|Interp[0-9]+)$} $name])} { return }
     set old [Attach]
     set oldname $PRIV(namesp)
     catch {
@@ -815,118 +981,6 @@ proc ::tkcon::InitInterp {name type} {
     if {$err ne ""} { return -code error $err }
 }
 
-## ::tkcon::InitFonts - determine best available font for the UI and console.
-## Creates fonts tkconui, tkconfixed, tkconfixedbold, tkconfixedlarge, tkconfixedsmall
-## that should be used throughout the application. This ensures consistency with
-## the available windowing system.
-# ARGS: window - top-level widget containing the console.
-##
-proc ::tkcon::InitFonts {window} {
-    variable PRIV
-    if {[tk windowingsystem] eq "win32"} {
-        # Segoe UI: Vista+ (2007), Tahoma: Windows 2000+, MS Sans Serif: Windows 95+
-        set ui_fonts {
-	    {"Segoe UI"      9}
-	    {"Tahoma"        8}
-	    {"MS Sans Serif" 8}
-	    {"Arial"         9}
-	}
-	# Cascadia Code: 2019+, Consolas: Vista+ (2007), Lucida Console: 1993+
-        set fixed_fonts {
-	    {"Cascadia Code"  11}
-	    {"Consolas"       10}
-	    {"Lucida Console"  9}
-	    {"Courier New"    10}
-	}
-
-    } elseif {[tk windowingsystem] eq "aqua"} {
-	# SF Pro Text: macOS 10.11+ (2015), Lucida Grande: 10.0-10.9 (2001-2013), Geneva: 1984+
-        set ui_fonts {
-	    {"SF Pro Text"   15}
-	    {"Lucida Grande" 13}
-	    {"Geneva"        12}
-	    {"Helvetica"     14}
-	}
-        # SF Mono: macOS 10.11+ (2015), Menlo: 10.6+ (2009), Monaco: 1984+
-        set fixed_fonts {
-	    {"SF Mono" 13}
-	    {"Menlo"   12}
-	    {"Monaco"  11}
-	    {"Courier" 12}
-	}
-
-    } else {
-        # Noto Sans: Modern default (Fedora 36+), DejaVu Sans: Traditional Linux default,
-	# Liberation Sans: Widely available
-        set ui_fonts {
-	    {"Noto Sans"       11}
-	    {"DejaVu Sans"     10}
-	    {"Liberation Sans" 10}
-	    {"Ubuntu"          11}
-	}
-        # Noto Sans Mono: Modern default (Fedora 36+), DejaVu Sans Mono: Traditional Linux default,
-	# Liberation Mono: Widely available
-        set fixed_fonts {
-	    {"Noto Sans Mono"   13}
-	    {"DejaVu Sans Mono" 12}
-	    {"Liberation Mono"  12}
-	    {"Ubuntu Mono"      13}
-	}
-    }
-
-    # Create UI font with fallbacks
-    set created_ui 0
-    foreach font_spec $ui_fonts {
-        lassign $font_spec family size
-        if {[catch {font create tkconui -family $family -size $size}]} {
-            continue
-        } else {
-            set created_ui 1
-            break
-        }
-    }
-    if {!$created_ui} {
-        font create tkconui {*}[font configure TkDefaultFont]
-    }
-
-    # Create fixed-width font with fallbacks
-    set created_fixed 0
-    foreach font_spec $fixed_fonts {
-        lassign $font_spec family size
-        if {[catch {font create tkconfixed -family $family -size $size}]} {
-            continue
-        } else {
-            set created_fixed 1
-            break
-        }
-    }
-    if {!$created_fixed} {
-        font create tkconfixed {*}[font configure TkFixedFont]
-    }
-
-    set fixedsize [font configure tkconfixed -size]
-    set fixedfam  [font configure tkconfixed -family]
-    set PRIV(fontsize) $fixedsize
-    catch {font create tkconfixedbold  -family $fixedfam -size $fixedsize -weight bold}
-    catch {font create tkconfixedlarge -family $fixedfam -size [expr {int(1.5 * $fixedsize)}] -weight bold}
-    catch {font create tkconfixedsmall -family $fixedfam -size [expr {int(0.8 * $fixedsize)}] -weight bold}
-
-    set uisize [font configure tkconui -size]
-    set uifam  [font configure tkconui -family]
-    catch {font create tkconuilarge -family $uifam -size [expr {int(1.5 * $uisize)}]}
-    catch {font create tkconuismall -family $uifam -size [expr {int(0.8 * $uisize)}]}
-
-    ttk::style configure $window -font tkconui
-}
-
-## ::tkcon::InitStyles - adds several styles used by the tkcon UI.
-# ARGS: window - top-level widget containing the console.
-##
-proc ::tkcon::InitStyles {window} {
-    variable COLOR
-    # Placeholder for future styles and layouts
-}
-
 ## ::tkcon::InitUI - inits UI portion (console) of tkcon
 ## Creates all elements of the console window and sets up the text tags
 # ARGS:	root	- widget pathname of the tkcon console root
@@ -946,19 +1000,16 @@ proc ::tkcon::InitUI {title} {
     }
     set PRIV(base) $w
 
-    InitFonts ".$w"
-    InitStyles ".$w"
-
     set PRIV(statusbar) [set sbar [ttk::frame $w.fstatus]]
     set PRIV(tabframe)  [set tabs [ttk::frame $w.tabs]]
-    ttk::separator $tabs.sep -orient vertical
-    pack $tabs.sep -side bottom -fill x -expand 1
 
-    ttk::label $sbar.cursor -relief sunken -anchor e -width 6 -textvariable ::tkcon::PRIV(StatusCursor)
-
-    set padx [expr {![info exists ::tcl_platform(os)] || ($::tcl_platform(os) ne "Windows CE")}]
-
-    grid $sbar.cursor -sticky e -padx $padx
+    set statusbar_padx [expr {int(2.0 * [font measure tkcon-sans-serif-small "M"])}]
+    set cursor_pad_right [expr {int(2.0 * $statusbar_padx)}]
+    ttk::style configure Statusbar.TLabel -foreground $COLOR(status-fg)
+    ttk::label $sbar.appname -style Statusbar.TLabel -textvariable ::tkcon::PRIV(appname)
+    ttk::label $sbar.cursor  -style Statusbar.TLabel -textvariable ::tkcon::PRIV(StatusCursor)
+    grid $sbar.appname -row 0 -column 0 -sticky e -padx $statusbar_padx
+    grid $sbar.cursor  -row 0 -column 1 -padx [list 0 $cursor_pad_right]
     grid columnconfigure $sbar 0 -weight 1
 
     ## Create console tab
@@ -1077,51 +1128,13 @@ proc ::tkcon::InitTab {w} {
     # text console
     set con $w.tab[incr PRIV(uid)]
     set padding [expr {int(0.333333333333333 * $PRIV(fontsize))}]
-    text $con -wrap char -foreground $COLOR(stdin) \
-	-insertbackground $COLOR(cursor) -borderwidth 1 -highlightthickness 0 \
+    text $con -wrap char -borderwidth 1 -highlightthickness 0 \
 	-padx $padding -pady $padding
     $con mark set output 1.0
     $con mark set limit 1.0
-    if {$COLOR(bg) ne ""} {
-	$con configure -background $COLOR(bg)
-    }
-    set COLOR(bg) [$con cget -background]
-    if {$OPT(font) ne ""} {
-	## Set user-requested font, if any
-	$con configure -font $OPT(font)
-    } elseif {$::tcl_platform(platform) ne "unix"} {
-	## otherwise make sure the font is monospace
-	set font [$con cget -font]
-	if {![font metrics $font -fixed]} {
-	    $con configure -font tkconfixed
-	}
-    } else {
-	$con configure -font tkconfixed
-    }
-    set OPT(font) [$con cget -font]
+
     bindtags $con [list $con TkConsole TkConsolePost $PRIV(root) all]
 
-    # scrollbar
-    if {!$PRIV(WWW)} {
-	if {$::tcl_platform(os) eq "Windows CE"} {
-	    font configure tkconfixed -family Tahoma -size 8
-	    $con configure -font tkconfixed -borderwidth 0 -padx 0 -pady 0
-	    set cw [font measure tkconfixed "0"]
-	    set ch [font metrics tkconfixed -linespace]
-	    set sw [winfo screenwidth $con]
-	    set sh [winfo screenheight $con]
-	    # We need the magic hard offsets until I find a way to
-	    # correctly assume size
-	    if {$cw*($OPT(cols)+2) > $sw} {
-		set OPT(cols) [expr {($sw / $cw) - 2}]
-	    }
-	    if {$ch*($OPT(rows)+3) > $sh} {
-		set OPT(rows) [expr {($sh / $ch) - 3}]
-	    }
-	    # Place it so that the titlebar underlaps the CE titlebar
-	    wm geometry $PRIV(root) +0+0
-	}
-    }
     $con configure -height $OPT(rows) -width $OPT(cols)
 
     foreach col {prompt stdout stderr stdin proc} {
@@ -1129,8 +1142,8 @@ proc ::tkcon::InitTab {w} {
     }
     $con tag configure var -background $COLOR(var)
     $con tag raise sel
-    $con tag configure blink -background $COLOR(blink)
-    $con tag configure find -background $COLOR(blink)
+    $con tag configure blink -background $COLOR(blink-bg) -foreground $COLOR(blink-fg)
+    $con tag configure find  -background $COLOR(find-bg)  -foreground $COLOR(find-fg)
 
     set ATTACH($con) [Attach]
 
@@ -1153,7 +1166,6 @@ proc ::tkcon::GotoTab {con} {
     variable ATTACH
 
     set numtabs [llength $PRIV(tabs)]
-    #if {$numtabs == 1} { return }
 
     if {[string is integer $con]} {
 	set curtab [lsearch -exact $PRIV(tabs) $PRIV(console)]
@@ -1716,11 +1728,11 @@ proc ::tkcon::Prompt {{pre {}} {post {}} {prompt {}}} {
     set i [$w index end-1c]
     if {!$OPT(showstatusbar)} {
 	if {$PRIV(appname) ne ""} {
-	    $w insert end ">$PRIV(appname)< " prompt
+	    $w insert end "\[$PRIV(appname)\] " prompt
 	}
-	if {$PRIV(namesp) ne "::"} {
-	    $w insert end "<$PRIV(namesp)> " prompt
-	}
+    }
+    if {$PRIV(namesp) ne "::"} {
+	$w insert end "\[$PRIV(namesp)\] " prompt
     }
     if {$prompt ne ""} {
 	$w insert end $prompt prompt
@@ -1735,15 +1747,6 @@ proc ::tkcon::Prompt {{pre {}} {post {}} {prompt {}}} {
     ConstrainBuffer $w $OPT(buffer)
     set ::tkcon::PRIV(StatusCursor) [$w index insert]
     $w see end
-}
-proc ::tkcon::RePrompt {{pre {}} {post {}} {prompt {}}} {
-    # same as prompt, but does nothing for those actions where we
-    # only wanted to refresh the prompt on attach change when the
-    # statusbar is showing (which carries that info instead)
-    variable OPT
-    if {!$OPT(showstatusbar)} {
-	Prompt $pre $post $prompt
-    }
 }
 
 ## ::tkcon::About - gives about info for tkcon
@@ -1761,28 +1764,26 @@ proc ::tkcon::About {} {
 	wm transient $w $PRIV(root)
 	wm group $w $PRIV(root)
 	catch {wm attributes $w -type dialog}
-	wm title $w "About tkcon v$PRIV(version)"
+	wm title $w "About Tkcon"
 	wm resizable $w 0 0
 	set parent [winfo parent $w]
 	set x [expr {[winfo x $parent] + 100}]
 	set y [expr {[winfo y $parent] + 100}]
 	wm geometry $w [format %+d%+d $x $y]
-	ttk::button $w.b -text Dismiss -command [list wm withdraw $w]
-	text $w.text -height 9 -width 60 \
-		-foreground $COLOR(stdin) -background $COLOR(bg) \
-		-font $OPT(font) -borderwidth 1 -highlightthickness 0
-	grid $w.text -sticky news
-	grid $w.b -sticky se -padx 6 -pady 4
-	$w.text tag config center -justify center
-	$w.text tag config title  -justify center -font tkconfixedlarge
-	# strip down the RCS info displayed in the about box
-	regexp {,v ([0-9\./: ]*)} $PRIV(RCS) -> RCS
-	$w.text insert 1.0 "About tkcon v$PRIV(version)" title \
-		"\n\nCopyright 1995-2002 Jeffrey Hobbs, $PRIV(email)\
-		\nRelease Info: v$PRIV(version), CVS v$RCS\
-		\nDocumentation available at:\n$PRIV(docs)\
-		\nUsing: Tcl v$tcl_patchLevel / Tk v$tk_patchLevel" center
-	$w.text config -state disabled
+	set button [ttk::button $w.b -text Dismiss -command [list wm withdraw $w]]
+	set about_text    "\n\nCopyright \u00A9 1995-2025, Jeffrey Hobbs &co."
+	append about_text "\nUsing: Tcl v$tcl_patchLevel / Tk v$tk_patchLevel"
+	set text [text $w.text]
+	$text tag config center -justify center -font tkcon-sans-serif
+	$text tag config title  -justify center -font tkcon-sans-serif-bold
+	$text insert 1.0 "\nTkcon version $PRIV(version)" title $about_text center
+	$text config -state disabled
+	set cols 40
+	set rows [CalcRowsFromCols $cols]
+	$text config -width $cols -height $rows
+	pack $text -fill both -expand 1
+	set padding [expr {int([font measure tkcon-sans-serif-small "M"] / 2.0)}]
+	pack $button -side bottom -expand 1 -anchor sw -padx $padding -pady $padding
 	bind $w <Escape> [list destroy $w]
     }
     wm deiconify $w
@@ -1801,7 +1802,6 @@ proc ::tkcon::InitMenus {w title} {
 	grid $w.label -sticky ew
 	return
     }
-    menu $w.context -disabledforeground $COLOR(disabled)
     set PRIV(context) $w.context
     set PRIV(popup) $w.pop
 
@@ -1823,8 +1823,7 @@ proc ::tkcon::InitMenus {w title} {
 
     ## File Menu
     ##
-    foreach m [list [menu $w.file -disabledforeground $COLOR(disabled)] \
-	    [menu $w.pop.file -disabledforeground $COLOR(disabled)]] {
+    foreach m [list [menu $w.file] [menu $w.pop.file]] {
 	$m add command -label "Load File" -underline 0 -command ::tkcon::Load
 	$m add cascade -label "Save ..."  -underline 0 -menu $m.save
 	$m add separator
@@ -1833,8 +1832,7 @@ proc ::tkcon::InitMenus {w title} {
 
 	## Save Menu
 	##
-	set s $m.save
-	menu $s -disabledforeground $COLOR(disabled)
+	set s [menu $m.save]
 	$s add command -label "All"	-underline 0 \
 		-command {::tkcon::Save {} all}
 	$s add command -label "History"	-underline 0 \
@@ -1849,8 +1847,7 @@ proc ::tkcon::InitMenus {w title} {
 
     ## Console Menu
     ##
-    foreach m [list [menu $w.console -disabledfore $COLOR(disabled)] \
-	    [menu $w.pop.console -disabledfore $COLOR(disabled)]] {
+    foreach m [list [menu $w.console] [menu $w.pop.console]] {
 	$m add command -label "$title Console"	-state disabled
 	$m add command -label "New Window" -underline 0 -accel $PRIV(ACC)$PRIV(MOD)N \
 		-command ::tkcon::New
@@ -1872,32 +1869,28 @@ proc ::tkcon::InitMenus {w title} {
 
 	## Attach Console Menu
 	##
-	set sub [menu $m.attach -disabledforeground $COLOR(disabled)]
+	set sub [menu $m.attach]
 	$sub add cascade -label "Interpreter" -underline 0 -menu $sub.apps
 	$sub add cascade -label "Namespace"   -underline 0 -menu $sub.name
 
 	## Attach Console Menu
 	##
-	menu $sub.apps -disabledforeground $COLOR(disabled) \
-		-postcommand [list ::tkcon::AttachMenu $sub.apps]
+	menu $sub.apps -postcommand [list ::tkcon::AttachMenu $sub.apps]
 
 	## Attach Namespace Menu
 	##
-	menu $sub.name -disabledforeground $COLOR(disabled) \
-		-postcommand [list ::tkcon::NamespaceMenu $sub.name]
+	menu $sub.name -postcommand [list ::tkcon::NamespaceMenu $sub.name]
 
 	## Attach Socket Menu
 	##
 	$sub add cascade -label "Socket" -underline 0 -menu $sub.sock
-	menu $sub.sock -disabledforeground $COLOR(disabled) \
-	    -postcommand [list ::tkcon::SocketMenu $sub.sock]
+	menu $sub.sock -postcommand [list ::tkcon::SocketMenu $sub.sock]
 
 	if {[tk windowingsystem] eq "x11"} {
 	    ## Attach Display Menu
 	    ##
 	    $sub add cascade -label "Display" -underline 0 -menu $sub.disp
-	    menu $sub.disp -disabledforeground $COLOR(disabled) \
-		    -postcommand [list ::tkcon::DisplayMenu $sub.disp]
+	    menu $sub.disp -postcommand [list ::tkcon::DisplayMenu $sub.disp]
 	}
     }
 
@@ -1918,14 +1911,13 @@ proc ::tkcon::InitMenus {w title} {
 		 -command [list ::tkcon::SelectNone $text]
 	$m add separator
 	$m add command -label "Find"  -underline 0 -accel $PRIV(ACC)F \
-		-command [list ::tkcon::FindBox $text]
+		-command [list ::tkcon::FindBox]
     }
 
     ## Interp Menu
     ##
     foreach m [list $w.interp $w.pop.interp] {
-	menu $m -disabledforeground $COLOR(disabled) \
-		-postcommand [list ::tkcon::InterpMenu $m]
+	menu $m -postcommand [list ::tkcon::InterpMenu $m]
     }
 
     ## Prefs Menu
@@ -1980,8 +1972,7 @@ proc ::tkcon::InitMenus {w title} {
     ## History Menu
     ##
     foreach m [list $w.history $w.pop.history] {
-	menu $m -disabledforeground $COLOR(disabled) \
-		-postcommand [list ::tkcon::HistoryMenu $m]
+	menu $m -postcommand [list ::tkcon::HistoryMenu $m]
     }
 
     ## Help Menu
@@ -2102,6 +2093,7 @@ proc ::tkcon::InterpMenu w {
 ##
 proc ::tkcon::InterpPkgs {app type} {
     variable PRIV
+    variable COLOR
 
     set t $PRIV(base).interppkgs
     if {![winfo exists $t]} {
@@ -2119,10 +2111,8 @@ proc ::tkcon::InterpPkgs {app type} {
 
 	ttk::label $t.ll -text "Loadable:" -anchor w
 	ttk::label $t.lr -text "Loaded:" -anchor w
-	listbox $t.loadable -font tkconfixed -background white -borderwidth 1 \
-	    -yscrollcommand [list $t.llsy set] -selectmode extended
-	listbox $t.loaded -font tkconfixed -background white -borderwidth 1 \
-	    -yscrollcommand [list $t.lrsy set]
+	listbox $t.loadable -yscrollcommand [list $t.llsy set] -selectmode extended
+	listbox $t.loaded   -yscrollcommand [list $t.lrsy set]
 	ttk::scrollbar $t.llsy -command [list $t.loadable yview]
 	ttk::scrollbar $t.lrsy -command [list $t.loaded yview]
 	ttk::button $t.load -text ">>" \
@@ -2185,7 +2175,6 @@ proc ::tkcon::InterpPkgs {app type} {
     foreach pkg [lsort -dictionary [array names loaded]] {
 	$t.loaded insert end [list $pkg $loaded($pkg)]
     }
-
     wm deiconify $t
     raise $t
 }
@@ -2223,8 +2212,8 @@ proc ::tkcon::AttachMenu m {
     foreach {i j} $tmp { set tknames($j) {} }
 
     $m delete 0 end
-    set cmd {::tkcon::RePrompt \n [::tkcon::CmdGet $::tkcon::PRIV(console)]}
-    $m add radio -label {None (use local child) } -accel $PRIV(ACC)1 \
+    set cmd {::tkcon::Prompt \n [::tkcon::CmdGet $::tkcon::PRIV(console)]}
+    $m add radio -label {None (use local interpreter) } -accel $PRIV(ACC)1 \
 	    -variable ::tkcon::PRIV(app) \
 	    -value [concat $::tkcon::PRIV(name) $::tkcon::OPT(exec)] \
 	    -command "::tkcon::Attach {}; $cmd"
@@ -2239,7 +2228,7 @@ proc ::tkcon::AttachMenu m {
     $m add command -label "tkcon Interpreters" -state disabled
     foreach i [lsort [array names interps]] {
 	if {$interps($i) eq ""} { set interps($i) "no Tk" }
-	if {[regexp {^Child[0-9]+} $i]} {
+	if {[regexp {^Interp[0-9]+} $i]} {
 	    set opts [list -label "$i ($interps($i))" \
 		    -variable ::tkcon::PRIV(app) -value $i \
 		    -command "::tkcon::Attach [list $i] child; $cmd"]
@@ -2266,7 +2255,7 @@ proc ::tkcon::AttachMenu m {
 ##
 proc ::tkcon::DisplayMenu m {
     $m delete 0 end
-    set cmd {::tkcon::RePrompt \n [::tkcon::CmdGet $::tkcon::PRIV(console)]}
+    set cmd {::tkcon::Prompt \n [::tkcon::CmdGet $::tkcon::PRIV(console)]}
 
     $m add command -label "New Display" -command ::tkcon::NewDisplay
     foreach disp [Display] {
@@ -2285,7 +2274,7 @@ proc ::tkcon::DisplayMenu m {
 ##
 proc ::tkcon::SocketMenu m {
     $m delete 0 end
-    set cmd {::tkcon::RePrompt \n [::tkcon::CmdGet $::tkcon::PRIV(console)]}
+    set cmd {::tkcon::Prompt \n [::tkcon::CmdGet $::tkcon::PRIV(console)]}
 
     $m add command -label "Create Connection" \
 	    -command "::tkcon::NewSocket; $cmd"
@@ -2309,7 +2298,7 @@ proc ::tkcon::NamespaceMenu m {
     }
 
     ## Same command as for ::tkcon::AttachMenu items
-    set cmd {::tkcon::RePrompt \n [::tkcon::CmdGet $::tkcon::PRIV(console)]}
+    set cmd {::tkcon::Prompt \n [::tkcon::CmdGet $::tkcon::PRIV(console)]}
 
     set names [lsort [Namespaces ::]]
     if {[llength $names] > $OPT(maxmenu)} {
@@ -2346,10 +2335,9 @@ proc ::tkcon::NamespacesList {names} {
     set x [expr {[winfo x $parent] + 100}]
     set y [expr {[winfo y $parent] + 100}]
     wm geometry $f [format %+d%+d $x $y]
-   listbox $f.names -width 30 -height 15 -selectmode single \
+    listbox $f.names -width 30 -height 15 -selectmode single \
 	-yscrollcommand [list $f.scrollv set] \
-	-xscrollcommand [list $f.scrollh set] \
-	-background white -borderwidth 1
+	-xscrollcommand [list $f.scrollh set]
     ttk::scrollbar $f.scrollv -command [list $f.names yview]
     ttk::scrollbar $f.scrollh -command [list $f.names xview] -orient horizontal
     ttk::frame $f.buttons
@@ -2374,7 +2362,7 @@ proc ::tkcon::NamespacesList {names} {
     bind $f.names <Double-1> {
 	## Catch in case the namespace disappeared on us
 	catch { ::tkcon::AttachNamespace [%W get [%W nearest %y]] }
-	::tkcon::RePrompt "\n" [::tkcon::CmdGet $::tkcon::PRIV(console)]
+	::tkcon::Prompt "\n" [::tkcon::CmdGet $::tkcon::PRIV(console)]
 	destroy [winfo toplevel %W]
     }
 }
@@ -2408,8 +2396,12 @@ proc ::tkcon::XauthSecure {} {
 # ARGS:	w	- text widget
 #	str	- optional seed string for ::tkcon::PRIV(find)
 ##
-proc ::tkcon::FindBox {w {str {}}} {
+proc ::tkcon::FindBox {{w {}} {str {}}} {
     variable PRIV
+
+    if {$w eq ""} {
+	set w $::tkcon::PRIV(console)
+    }
 
     set base $PRIV(base).find
     if {![winfo exists $base]} {
@@ -2486,6 +2478,7 @@ proc ::tkcon::FindBox {w {str {}}} {
 #	-regexp	TCL_BOOLEAN	whether to use $str as pattern	DEFAULT: 0
 ##
 proc ::tkcon::Find {w str args} {
+    variable COLOR
     $w tag remove find 1.0 end
     set truth {^(1|yes|true|on)$}
     set opts  {}
@@ -2504,7 +2497,7 @@ proc ::tkcon::Find {w str args} {
 	$w tag add find $ix ${ix}+${numc}c
 	$w mark set findmark ${ix}+1c
     }
-    $w tag configure find -background $::tkcon::COLOR(blink)
+    $w tag configure find -background $COLOR(find-bg) -foreground $COLOR(find-fg)
     catch {$w see find.first}
     return [expr {[llength [$w tag ranges find]]/2}]
 }
@@ -2531,10 +2524,11 @@ proc ::tkcon::fontchooserHandler {font args} {
     set list [font actual $font -displayof $PRIV(root)]
     array set attrs $list
 
-    font configure tkconfixed {*}$list
-    font configure tkconfixedbold {*}$list -weight bold
-    font configure tkconfixedlarge {*}$list -weight bold -size [expr {$attrs(-size)+4}]
-    font configure tkconfixedsmall {*}$list -weight bold -size [expr {$attrs(-size)-4}]
+    font configure tkcon-fixed {*}$list
+    font configure tkcon-fixed-bold {*}$list -weight bold
+    font configure tkcon-fixed-large {*}$list -size [expr {int(1.125 * $attrs(-size))}]
+    font configure tkcon-fixed-small {*}$list -size [expr {int(0.875 * $attrs(-size))}]
+    font configure tkcon-fixed-extra-small {*}$list -size [expr {int(0.6875 * $attrs(-size))}]
     tkcon font {*}$list
 }
 
@@ -2882,10 +2876,10 @@ proc ::tkcon::MainInit {} {
 
     proc ::tkcon::GetChild {{child {}}} {
 	set i 0
-	while {[Child $child [list interp exists Child[incr i]]]} {
+	while {[Child $child [list interp exists Interp[incr i]]]} {
 	    # oh my god, an empty loop!
 	}
-	set interp [Child $child [list interp create Child$i]]
+	set interp [Child $child [list interp create Interp$i]]
 	return $interp
     }
 
@@ -3210,9 +3204,6 @@ proc ::tkcon::MainInit {} {
 	    ttk::frame $w.btn
 	    ttk::scrollbar $w.sy -command [list $w.text yview]
 	    text $w.text -yscrollcommand [list $w.sy set] -height 12 \
-		    -foreground $COLOR(stdin) \
-		    -background $COLOR(bg) \
-		    -insertbackground $COLOR(cursor) \
 		    -font $OPT(font) -borderwidth 1 -highlightthickness 0
 	    $w.text tag config red -foreground red
 	    ttk::button $w.close -text "Dismiss" -command [list destroy $w]
@@ -4306,9 +4297,6 @@ proc edit {args} {
     $w.text configure -wrap $opts(-wrap) \
 	-xscrollcommand [list $w.sx set] \
 	-yscrollcommand [list $w.sy set] \
-	-foreground $COLOR(stdin) \
-	-background $COLOR(bg) \
-	-insertbackground $COLOR(cursor) \
 	-font $::tkcon::OPT(font) -borderwidth 1 -highlightthickness 0 \
 	-undo 1
     catch {
@@ -4348,7 +4336,7 @@ proc edit {args} {
 	-command [list tk_textPaste $text]
     $m add separator
     $m add command -label "Find" -underline 0 \
-	-command [list ::tkcon::FindBox $text]
+	-command [list ::tkcon::FindBox]
 
     ## Send To Menu
     ##
@@ -5509,20 +5497,19 @@ proc tcl_unknown args {
 #
 ############################################################################
 proc ::tkcon::ResizeSet {incr} {
-    set size [font configure tkconfixed -size]
+    set size [expr {abs([font configure tkcon-fixed -size])}]
     set new [expr {$size + $incr}]
     if {$new < 6 || $new > 64} {
 	return
     }
 
-    foreach name [list tkconfixed tkconfixedbold tkconfixedlarge tkconfixedsmall] {
+    foreach name [list tkcon-fixed tkcon-fixed-bold tkcon-fixed-large tkcon-fixed-small tkcon-fixed-extra-small] {
 	set size [font configure $name -size]
-	font configure $name -size [incr size $incr]
+	font configure $name -size [incr size [expr {$size < 0 ? -$incr : $incr}]]
     }
 
-    tkcon font {*}[font actual tkconfixed]
-    $::tkcon::PRIV(console) configure -font tkconfixed
-#   $::tkcon::PRIV(menubar) configure -font tkconfixed
+    tkcon font {*}[font actual tkcon-fixed]
+    $::tkcon::PRIV(console) configure -font tkcon-fixed
 }
 
 ############################################################################
@@ -5533,7 +5520,7 @@ proc ::tkcon::ResizeSet {incr} {
 #
 ############################################################################
 proc ::tkcon::ResizeUp {} {
-    set size [font configure tkconfixed -size]
+    set size [font configure tkcon-fixed -size]
     if {$size < 14} {
 	set incr 1
     } elseif {$size < 24} {
@@ -5552,7 +5539,7 @@ proc ::tkcon::ResizeUp {} {
 #
 ############################################################################
 proc ::tkcon::ResizeDn {} {
-    set size [font configure tkconfixed -size]
+    set size [font configure tkcon-fixed -size]
     if {$size <= 14} {
 	set incr -1
     } elseif {$size <= 24} {
@@ -5572,7 +5559,7 @@ proc ::tkcon::ResizeDn {} {
 ############################################################################
 proc ::tkcon::ResizeReset {} {
     variable PRIV
-    set incr [expr {$PRIV(fontsize) - [font configure tkconfixed -size]}]
+    set incr [expr {$PRIV(fontsize) - abs([font configure tkcon-fixed -size])}]
     ResizeSet $incr
 }
 
@@ -5669,10 +5656,10 @@ proc ::tkcon::Bindings {} {
     bind $PRIV(root) <<TkCon_Close>>    { ::tkcon::DeleteTab }
     bind $PRIV(root) <<TkCon_CloseWin>> { ::tkcon::Destroy }
     bind $PRIV(root) <<TkCon_About>>    { ::tkcon::About }
-    bind $PRIV(root) <<TkCon_Find>>     { ::tkcon::FindBox $::tkcon::PRIV(console) }
+    bind $PRIV(root) <<TkCon_Find>>     { ::tkcon::FindBox }
     bind $PRIV(root) <<TkCon_Child>>    {
 	::tkcon::Attach {}
-	::tkcon::RePrompt "\n" [::tkcon::CmdGet $::tkcon::PRIV(console)]
+	::tkcon::Prompt "\n" [::tkcon::CmdGet $::tkcon::PRIV(console)]
     }
     bind $PRIV(root) <<TkCon_Master>>	{
 	if {[string compare {} $::tkcon::PRIV(name)]} {
@@ -5680,11 +5667,11 @@ proc ::tkcon::Bindings {} {
 	} else {
 	    ::tkcon::Attach Main
 	}
-	::tkcon::RePrompt "\n" [::tkcon::CmdGet $::tkcon::PRIV(console)]
+	::tkcon::Prompt "\n" [::tkcon::CmdGet $::tkcon::PRIV(console)]
     }
     bind $PRIV(root) <<TkCon_Main>>	{
 	::tkcon::Attach Main
-	::tkcon::RePrompt "\n" [::tkcon::CmdGet $::tkcon::PRIV(console)]
+	::tkcon::Prompt "\n" [::tkcon::CmdGet $::tkcon::PRIV(console)]
     }
     bind $PRIV(root) <<TkCon_Popup>> {
 	::tkcon::PopupMenu %X %Y
