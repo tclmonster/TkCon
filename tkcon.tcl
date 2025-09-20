@@ -102,7 +102,13 @@ oo::class create ::tkcon::Widget {
     constructor {path} {
 	rename ::$path [self namespace]::$path
 	interp alias {} ::$path {} [self]
-	bind $path <Destroy> [list [self] destroy]
+
+	bind $path <Destroy> [list ::apply {{obj} {
+	    if {[info object isa object $obj]} {
+		$obj destroy
+	    }
+	}} [self]]
+
 	set Path $path
     }
     destructor {
@@ -2392,82 +2398,82 @@ proc ::tkcon::XauthSecure {} {
     tk_messageBox -title "Xhost secured" -message "Xhost secured" -icon info
 }
 
-## ::tkcon::FindBox - creates minimal dialog interface to ::tkcon::Find
-# ARGS:	w	- text widget
-#	str	- optional seed string for ::tkcon::PRIV(find)
-##
-proc ::tkcon::FindBox {{w {}} {str {}}} {
-    variable PRIV
+oo::class create ::tkcon::FindDialog {
+    superclass ::tkcon::Widget
+    variable Dialog
+    variable Text
+    constructor {{text_widget {}} {str {}}} {
+	namespace upvar ::tkcon PRIV PRIV
+	set Dialog $PRIV(base).find
+	if {[winfo exists $Dialog]} {
+	    destroy $Dog
+	}
+	set Text [expr {$text_widget ne "" ? $text_widget : $PRIV(console)}]
+	toplevel $Dialog
 
-    if {$w eq ""} {
-	set w $::tkcon::PRIV(console)
-    }
+	next $Dialog
 
-    set base $PRIV(base).find
-    if {![winfo exists $base]} {
-	toplevel $base
-	wm withdraw $base
-	catch {wm attributes $base -type dialog}
-	wm transient $base $PRIV(root)
-	wm group $base $PRIV(root)
-	wm title $base "tkcon Find"
-	wm resizable $base 1 0
-	set parent [winfo parent $base]
-	set x [expr {[winfo x $parent] + 100}]
-	set y [expr {[winfo y $parent] + 100}]
-	wm geometry $base [format %+d%+d $x $y]
+	wm title $Dialog "Find"
+	set x [expr {[winfo x $Text] + 100}]
+	set y [expr {[winfo y $Text] + 100}]
+	wm geometry $Dialog [format %+d%+d $x $y]
+	set findlabel [ttk::label $Dialog.find_label -text "Find:" -anchor e]
+	set findentry [ttk::entry $Dialog.find_entry -textvariable ::tkcon::PRIV(find)]
+	set casebutton   [ttk::checkbutton $Dialog.case -text "Case Sensitive" -variable ::tkcon::PRIV(find,case)]
+	set regexpbutton [ttk::checkbutton $Dialog.re   -text "Use Regexp" -variable ::tkcon::PRIV(find,reg)]
 
-	ttk::label $base.l -text "Find:" -anchor e
-	ttk::entry $base.e -textvariable ::tkcon::PRIV(find)
+	set buttonbar [ttk::frame $Dialog.buttonbar]
+	grid $findlabel $findentry - - -sticky ew -padx 4 -pady 4
+	grid $casebutton - $regexpbutton -sticky ew -padx 4
+	grid $buttonbar -columnspan 4 -sticky ew -padx 2 -pady 2
+	grid columnconfigure $Dialog 2 -weight 1
 
-	ttk::checkbutton $base.case -text "Case Sensitive" \
-	    -variable ::tkcon::PRIV(find,case)
-	ttk::checkbutton $base.re -text "Use Regexp" \
-	    -variable ::tkcon::PRIV(find,reg)
+	ttk::button $buttonbar.find  -text "Find" -command [list [self] find]
+	ttk::button $buttonbar.clear -text "Clear" -command [list [self] clear]
+	ttk::button $buttonbar.dismiss -text "Dismiss" -command [list [self] dismiss]
+	grid $buttonbar.find $buttonbar.clear $buttonbar.dismiss -padx 4 -pady 2 -sticky ew
 
-	ttk::frame $base.sep -borderwidth 1 -relief sunken -height 2
-	ttk::frame $base.btn
-	grid $base.l $base.e - - -sticky ew -padx 4 -pady 4
-	grid $base.case - $base.re -sticky ew -padx 4
-	grid $base.sep -columnspan 4 -sticky ew
-	grid $base.btn -columnspan 4 -sticky ew -padx 2 -pady 2
-	grid columnconfigure $base 3 -weight 1
+	bind $findentry <Return> [list $buttonbar.find invoke]
+	bind $findentry <Escape> [list $buttonbar.dismiss invoke]
 
-	ttk::button $base.btn.fnd -text "Find"
-	ttk::button $base.btn.clr -text "Clear"
-	ttk::button $base.btn.dis -text "Dismiss"
-	eval grid [winfo children $base.btn] -padx 4 -pady 2 -sticky ew
-	if {$PRIV(AQUA)} { # corner resize control space
-	    grid columnconfigure $base.btn \
-		[lindex [grid size $base.btn] 0] -minsize 16
+	if {$str ne ""} {
+	    set PRIV(find) $str
+	    my find
 	}
 
-	focus $base.e
-
-	bind $base.e <Return> [list $base.btn.fnd invoke]
-	bind $base.e <Escape> [list $base.btn.dis invoke]
-    }
-    $base.btn.fnd config -command "::tkcon::Find [list $w] \$::tkcon::PRIV(find) \
-	    -case \$::tkcon::PRIV(find,case) -reg \$::tkcon::PRIV(find,reg)"
-    $base.btn.clr config -command "
-    [list $w] tag remove find 1.0 end
-    set ::tkcon::PRIV(find) {}
-    "
-    $base.btn.dis config -command "
-    [list $w] tag remove find 1.0 end
-    wm withdraw [list $base]
-    "
-    if {$str ne ""} {
-	set PRIV(find) $str
-	$base.btn.fnd invoke
+	raise $Dialog
+	focus $findentry
+	$findentry select range 0 end
     }
 
-    if {[wm state $base] ne "normal"} {
-	wm deiconify $base
-    } else {
-	raise $base
+    destructor {
+	namespace upvar ::tkcon PRIV PRIV
+	set PRIV(find) {}
     }
-    $base.e select range 0 end
+
+    method find {} {
+	namespace upvar ::tkcon PRIV PRIV
+	::tkcon::Find [list $Text] $PRIV(find) -case $PRIV(find,case) -reg $PRIV(find,reg)
+    }
+
+    method clear {} {
+	namespace upvar ::tkcon PRIV PRIV
+	$Text tag remove find 1.0 end
+	set PRIV(find) {}
+    }
+
+    method dismiss {} {
+	my clear
+	destroy $Dialog
+    }
+}
+
+## ::tkcon::FindBox - creates minimal dialog interface to ::tkcon::Find
+# ARGS:	w   - text widget
+#       str - optional seed string for ::tkcon::PRIV(find)
+##
+proc ::tkcon::FindBox {{w {}} {str {}}} {
+    FindDialog new $w $str
 }
 
 ## ::tkcon::Find - searches in text widget $w for $str and highlights it
@@ -4328,15 +4334,11 @@ proc edit {args} {
     ##
     set text $w.text
     set m [menu [::tkcon::MenuButton $menu Edit edit]]
-    $m add command -label "Cut"   -underline 2 \
-	-command [list tk_textCut $text]
-    $m add command -label "Copy"  -underline 0 \
-	-command [list tk_textCopy $text]
-    $m add command -label "Paste" -underline 0 \
-	-command [list tk_textPaste $text]
+    $m add command -label "Cut"   -underline 2 -command [list tk_textCut   $text]
+    $m add command -label "Copy"  -underline 0 -command [list tk_textCopy  $text]
+    $m add command -label "Paste" -underline 0 -command [list tk_textPaste $text]
     $m add separator
-    $m add command -label "Find" -underline 0 \
-	-command [list ::tkcon::FindBox]
+    $m add command -label "Find"  -underline 0 -command [list ::tkcon::FindBox $text]
 
     ## Send To Menu
     ##
