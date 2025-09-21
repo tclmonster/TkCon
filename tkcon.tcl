@@ -121,6 +121,29 @@ oo::class create ::tkcon::Widget {
     }
 }
 
+oo::class create ::tkcon::Dialog {
+    superclass ::tkcon::Widget
+    constructor {path {title ""} {relative_to ""}} {
+	namespace upvar ::tkcon PRIV PRIV
+	if {[winfo exists $path]} {
+	    destroy $path
+	}
+	toplevel $path
+	wm withdraw $path
+	catch {wm attributes $path -type dialog}
+	wm resizable $path 0 0
+	set relative_to [expr {$relative_to eq "" ? [winfo parent $path] : $relative_to}]
+	set x [expr {[winfo x $relative_to] + 100}]
+	set y [expr {[winfo y $relative_to] + 100}]
+	wm geometry $path [format %+d%+d $x $y]
+	wm title $path $title
+	wm deiconify $path
+	raise $path
+
+	next $path
+    }
+}
+
 oo::class create ::tkcon::TabButton {
     superclass ::tkcon::Widget
     variable Console
@@ -1752,47 +1775,44 @@ proc ::tkcon::Prompt {{pre {}} {post {}} {prompt {}}} {
     $w see end
 }
 
-## ::tkcon::About - gives about info for tkcon
-##
-proc ::tkcon::About {} {
-    variable OPT
-    variable PRIV
-    variable COLOR
-
-    set w $PRIV(base).about
-    if {![winfo exists $w]} {
+oo::class create ::tkcon::AboutDialog {
+    superclass ::tkcon::Dialog
+    constructor {} {
 	global tk_patchLevel tcl_patchLevel
-	toplevel $w
-	wm withdraw $w
-	wm transient $w $PRIV(root)
-	wm group $w $PRIV(root)
-	catch {wm attributes $w -type dialog}
-	wm title $w "About Tkcon"
-	wm resizable $w 0 0
-	set parent [winfo parent $w]
-	set x [expr {[winfo x $parent] + 100}]
-	set y [expr {[winfo y $parent] + 100}]
-	wm geometry $w [format %+d%+d $x $y]
-	set button [ttk::button $w.b -text Dismiss -command [list wm withdraw $w]]
+	namespace upvar ::tkcon PRIV PRIV
+	set dialog $PRIV(base).about
+
+	next $dialog "About Tkcon"
+
+	set button [ttk::button $dialog.b -text Dismiss -command [list [self] dismiss]]
 	set about_text    "\n\nCopyright \u00A9 1995-2025, Jeffrey Hobbs &co."
 	append about_text "\nRunning: Tcl v$tcl_patchLevel / Tk v$tk_patchLevel"
 	if {[file exists $PRIV(docs)]} {
 	    append about_text "\nDocumentation available at:\n$PRIV(docs)"
 	}
-	set text [text $w.text]
+	set text [text $dialog.text -highlightthickness 0]
 	$text tag config center -justify center -font tkcon-sans-serif
 	$text tag config title  -justify center -font tkcon-sans-serif-bold
 	$text insert 1.0 "\nTkcon version $PRIV(version)" title $about_text center
 	$text config -state disabled
-	set cols 40
-	set rows [CalcRowsFromCols $cols]
+	set cols 42
+	set rows [::tkcon::CalcRowsFromCols $cols]
 	$text config -width $cols -height $rows
 	pack $text -fill both -expand 1
 	set padding [expr {int([font measure tkcon-sans-serif-small "M"] / 2.0)}]
 	pack $button -side bottom -expand 1 -anchor sw -padx $padding -pady $padding
-	bind $w <Escape> [list destroy $w]
+	bind $dialog <Escape> [list destroy $dialog]
     }
-    wm deiconify $w
+
+    method dismiss {} {
+	my destroy
+    }
+}
+
+## ::tkcon::About - gives about info for tkcon
+##
+proc ::tkcon::About {} {
+    AboutDialog new
 }
 
 ## ::tkcon::InitMenus - inits the menubar and popup for the console
@@ -2397,34 +2417,25 @@ proc ::tkcon::XauthSecure {} {
 }
 
 oo::class create ::tkcon::FindDialog {
-    superclass ::tkcon::Widget
-    variable Dialog
+    superclass ::tkcon::Dialog
     variable Text
     constructor {{text_widget {}} {str {}}} {
 	namespace upvar ::tkcon PRIV PRIV
-	set Dialog $PRIV(base).find
-	if {[winfo exists $Dialog]} {
-	    destroy $Dialog
-	}
 	set Text [expr {$text_widget ne "" ? $text_widget : $PRIV(console)}]
-	toplevel $Dialog
+	set dialog $PRIV(base).find
 
-	next $Dialog
+	next $dialog "Find" $Text
 
-	wm title $Dialog "Find"
-	set x [expr {[winfo x $Text] + 100}]
-	set y [expr {[winfo y $Text] + 100}]
-	wm geometry $Dialog [format %+d%+d $x $y]
-	set findlabel [ttk::label $Dialog.find_label -text "Find:" -anchor e]
-	set findentry [ttk::entry $Dialog.find_entry -textvariable ::tkcon::PRIV(find)]
-	set casebutton   [ttk::checkbutton $Dialog.case -text "Case Sensitive" -variable ::tkcon::PRIV(find,case)]
-	set regexpbutton [ttk::checkbutton $Dialog.re   -text "Use Regexp" -variable ::tkcon::PRIV(find,reg)]
+	set findlabel [ttk::label $dialog.find_label -text "Find:" -anchor e]
+	set findentry [ttk::entry $dialog.find_entry -textvariable ::tkcon::PRIV(find)]
+	set casebutton   [ttk::checkbutton $dialog.case -text "Case Sensitive" -variable ::tkcon::PRIV(find,case)]
+	set regexpbutton [ttk::checkbutton $dialog.re   -text "Use Regexp" -variable ::tkcon::PRIV(find,reg)]
 
-	set buttonbar [ttk::frame $Dialog.buttonbar]
+	set buttonbar [ttk::frame $dialog.buttonbar]
 	grid $findlabel $findentry - - -sticky ew -padx 4 -pady 4
 	grid $casebutton - $regexpbutton -sticky ew -padx 4
 	grid $buttonbar -columnspan 4 -sticky ew -padx 2 -pady 2
-	grid columnconfigure $Dialog 2 -weight 1
+	grid columnconfigure $dialog 2 -weight 1
 
 	ttk::button $buttonbar.find  -text "Find" -command [list [self] find]
 	ttk::button $buttonbar.clear -text "Clear" -command [list [self] clear]
@@ -2439,14 +2450,13 @@ oo::class create ::tkcon::FindDialog {
 	    my find
 	}
 
-	raise $Dialog
 	focus $findentry
 	$findentry select range 0 end
     }
 
     destructor {
 	namespace upvar ::tkcon PRIV PRIV
-	set PRIV(find) {}
+	my clear
     }
 
     method find {} {
@@ -2461,7 +2471,7 @@ oo::class create ::tkcon::FindDialog {
     }
 
     method dismiss {} {
-	destroy $Dialog
+	my destroy
     }
 }
 
