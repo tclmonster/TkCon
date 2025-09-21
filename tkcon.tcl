@@ -2406,7 +2406,7 @@ oo::class create ::tkcon::FindDialog {
 	namespace upvar ::tkcon PRIV PRIV
 	set Dialog $PRIV(base).find
 	if {[winfo exists $Dialog]} {
-	    destroy $Dog
+	    destroy $Dialog
 	}
 	set Text [expr {$text_widget ne "" ? $text_widget : $PRIV(console)}]
 	toplevel $Dialog
@@ -2463,7 +2463,6 @@ oo::class create ::tkcon::FindDialog {
     }
 
     method dismiss {} {
-	my clear
 	destroy $Dialog
     }
 }
