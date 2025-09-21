@@ -1778,7 +1778,10 @@ proc ::tkcon::About {} {
 	wm geometry $w [format %+d%+d $x $y]
 	set button [ttk::button $w.b -text Dismiss -command [list wm withdraw $w]]
 	set about_text    "\n\nCopyright \u00A9 1995-2025, Jeffrey Hobbs &co."
-	append about_text "\nUsing: Tcl v$tcl_patchLevel / Tk v$tk_patchLevel"
+	append about_text "\nRunning: Tcl v$tcl_patchLevel / Tk v$tk_patchLevel"
+	if {[file exists $PRIV(docs)]} {
+	    append about_text "\nDocumentation available at:\n$PRIV(docs)"
+	}
 	set text [text $w.text]
 	$text tag config center -justify center -font tkcon-sans-serif
 	$text tag config title  -justify center -font tkcon-sans-serif-bold
