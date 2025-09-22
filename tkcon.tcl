@@ -124,7 +124,6 @@ oo::class create ::tkcon::Widget {
 oo::class create ::tkcon::Dialog {
     superclass ::tkcon::Widget
     constructor {path {title ""} {relative_to ""}} {
-	namespace upvar ::tkcon PRIV PRIV
 	if {[winfo exists $path]} {
 	    destroy $path
 	}
@@ -132,9 +131,9 @@ oo::class create ::tkcon::Dialog {
 	wm withdraw $path
 	catch {wm attributes $path -type dialog}
 	wm resizable $path 0 0
-	set relative_to [expr {$relative_to eq "" ? [winfo parent $path] : $relative_to}]
-	set x [expr {[winfo x $relative_to] + 100}]
-	set y [expr {[winfo y $relative_to] + 100}]
+	set relative_to [expr {$relative_to eq "" ? [focus] : $relative_to}]
+	set x [expr {[winfo rootx $relative_to] + [winfo width $relative_to]/4}]
+	set y [expr {[winfo rooty $relative_to] + [winfo height $relative_to]/4}]
 	wm geometry $path [format %+d%+d $x $y]
 	wm title $path $title
 	wm deiconify $path
@@ -2455,7 +2454,6 @@ oo::class create ::tkcon::FindDialog {
     }
 
     destructor {
-	namespace upvar ::tkcon PRIV PRIV
 	my clear
     }
 
@@ -2465,9 +2463,10 @@ oo::class create ::tkcon::FindDialog {
     }
 
     method clear {} {
-	namespace upvar ::tkcon PRIV PRIV
-	$Text tag remove find 1.0 end
-	set PRIV(find) {}
+	if {[winfo exists $Text]} {
+	    $Text tag remove find 1.0 end
+	}
+	set ::tkcon::PRIV(find) {}
     }
 
     method dismiss {} {
@@ -4341,11 +4340,12 @@ proc edit {args} {
     ##
     set text $w.text
     set m [menu [::tkcon::MenuButton $menu Edit edit]]
-    $m add command -label "Cut"   -underline 2 -command [list tk_textCut   $text]
-    $m add command -label "Copy"  -underline 0 -command [list tk_textCopy  $text]
-    $m add command -label "Paste" -underline 0 -command [list tk_textPaste $text]
+    $m add command -label "Copy"  -underline 0 -accel $PRIV(ACC)C -command [list tk_textCopy  $text]
+    $m add command -label "Cut"   -underline 2 -accel $PRIV(ACC)X -command [list tk_textCut   $text]
+    $m add command -label "Paste" -underline 0 -accel $PRIV(ACC)V -command [list tk_textPaste $text]
     $m add separator
-    $m add command -label "Find"  -underline 0 -command [list ::tkcon::FindBox $text]
+    $m add command -label "Find"  -underline 0 -accel $PRIV(ACC)F -command [list ::tkcon::FindBox $text]
+    bind $w <<TkCon_Find>> [list ::tkcon::FindBox $text]
 
     ## Send To Menu
     ##
