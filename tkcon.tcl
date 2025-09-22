@@ -4330,15 +4330,24 @@ proc edit {args} {
     bind $w <$PRIV(CTRL)w>	[list destroy $w]
     bind $w <Alt-w>		[list destroy $w]
 
+    set popmenu [menu $w.popup]
+
     ## Edit Menu
     ##
     set text $w.text
+    set copy  [list tk_textCopy  $text]
+    set cut   [list tk_textCut   $text]
+    set paste [list tk_textPaste $text]
+    set find  [list ::tkcon::FindBox $text]
     set m [menu [::tkcon::MenuButton $menu Edit edit]]
-    $m add command -label "Copy"  -underline 0 -accel $PRIV(ACC)C -command [list tk_textCopy  $text]
-    $m add command -label "Cut"   -underline 2 -accel $PRIV(ACC)X -command [list tk_textCut   $text]
-    $m add command -label "Paste" -underline 0 -accel $PRIV(ACC)V -command [list tk_textPaste $text]
-    $m add separator
-    $m add command -label "Find"  -underline 0 -accel $PRIV(ACC)F -command [list ::tkcon::FindBox $text]
+    foreach menu_item [list $m $popmenu] {
+	$menu_item add command -label "Copy"  -underline 0 -accel $PRIV(ACC)C -command $copy
+	$menu_item add command -label "Cut"   -underline 2 -accel $PRIV(ACC)X -command $cut
+	$menu_item add command -label "Paste" -underline 0 -accel $PRIV(ACC)V -command $paste
+	$menu_item add separator
+	$menu_item add command -label "Find"  -underline 0 -accel $PRIV(ACC)F -command $find
+    }
+    bind $w <Button-3> [list tk_popup $popmenu %X %Y]
     bind $w <<TkCon_Find>> [list ::tkcon::FindBox $text]
 
     ## Send To Menu
