@@ -84,47 +84,47 @@ namespace eval ::tkcon {
 oo::class create ::tkcon::Widget {
     variable Path
     constructor {path} {
-	rename ::$path [self namespace]::$path
-	interp alias {} ::$path {} [self]
+        rename ::$path [self namespace]::$path
+        interp alias {} ::$path {} [self]
 
-	bind $path <Destroy> [list ::apply {{obj} {
-	    if {[info object isa object $obj]} {
-		$obj destroy
-	    }
-	}} [self]]
+        bind $path <Destroy> [list ::apply {{obj} {
+            if {[info object isa object $obj]} {
+                $obj destroy
+            }
+        }} [self]]
 
-	set Path $path
+        set Path $path
     }
     destructor {
-	if {[winfo exists $Path]} {
-	    destroy $Path
-	}
+        if {[winfo exists $Path]} {
+            destroy $Path
+        }
     }
     method unknown {subcmd args} {
-	[self namespace]::$Path $subcmd {*}$args
+        [self namespace]::$Path $subcmd {*}$args
     }
 }
 
 oo::class create ::tkcon::Dialog {
     superclass ::tkcon::Widget
     constructor {path {title ""} {relative_to ""}} {
-	if {[winfo exists $path]} {
-	    destroy $path
-	}
-	toplevel $path
-	wm withdraw $path
-	catch {wm attributes $path -type dialog}
-	wm resizable $path 0 0
-	set focus [expr {[focus] ne "" ? [focus] : "."}]
-	set relative_to [expr {$relative_to eq "" ? $focus : $relative_to}]
-	set x [expr {[winfo rootx $relative_to] + [winfo width $relative_to]/4}]
-	set y [expr {[winfo rooty $relative_to] + [winfo height $relative_to]/4}]
-	wm geometry $path [format %+d%+d $x $y]
-	wm title $path $title
-	wm deiconify $path
-	raise $path
+        if {[winfo exists $path]} {
+            destroy $path
+        }
+        toplevel $path
+        wm withdraw $path
+        catch {wm attributes $path -type dialog}
+        wm resizable $path 0 0
+        set focus [expr {[focus] ne "" ? [focus] : "."}]
+        set relative_to [expr {$relative_to eq "" ? $focus : $relative_to}]
+        set x [expr {[winfo rootx $relative_to] + [winfo width $relative_to]/4}]
+        set y [expr {[winfo rooty $relative_to] + [winfo height $relative_to]/4}]
+        wm geometry $path [format %+d%+d $x $y]
+        wm title $path $title
+        wm deiconify $path
+        raise $path
 
-	next $path
+        next $path
     }
 }
 
@@ -141,113 +141,113 @@ oo::class create ::tkcon::TabButton {
     method console     {} { return $Console }
 
     method selected {} {
-	namespace upvar ::tkcon PRIV PRIV
-	expr {$Console eq $PRIV(console)}
+        namespace upvar ::tkcon PRIV PRIV
+        expr {$Console eq $PRIV(console)}
     }
 
     constructor {con} {
-	namespace upvar ::tkcon PRIV PRIV
-	set Console $con
-	set Container   "$PRIV(tabframe).cb[winfo name $con]"
-	set Content     "$Container.selectBtn"
-	set CloseButton "$Container.closeBtn"
+        namespace upvar ::tkcon PRIV PRIV
+        set Console $con
+        set Container   "$PRIV(tabframe).cb[winfo name $con]"
+        set Content     "$Container.selectBtn"
+        set CloseButton "$Container.closeBtn"
 
-	set tabname "Console [incr PRIV(nexttabname)]"
+        set tabname "Console [incr PRIV(nexttabname)]"
 
-	frame $Container
+        frame $Container
 
-	radiobutton $Content -borderwidth 0 -indicatoron 0 \
-	    -variable ::tkcon::PRIV(curtab) -value $con \
-	    -text $tabname -command [list ::tkcon::GotoTab $con]
+        radiobutton $Content -borderwidth 0 -indicatoron 0 \
+            -variable ::tkcon::PRIV(curtab) -value $con \
+            -text $tabname -command [list ::tkcon::GotoTab $con]
 
-	label $CloseButton -text "\u00D7"
+        label $CloseButton -text "\u00D7"
 
-	# Force the close button to a square
-	set current_width  [winfo reqwidth $CloseButton]
-	set current_height [winfo reqheight $CloseButton]
-	set target_size [expr {max($current_width, $current_height)}]
-	set ipad_x [expr {($target_size - $current_width) / 2}]
-	set ipad_y [expr {($target_size - $current_height) / 2}]
+        # Force the close button to a square
+        set current_width  [winfo reqwidth $CloseButton]
+        set current_height [winfo reqheight $CloseButton]
+        set target_size [expr {max($current_width, $current_height)}]
+        set ipad_x [expr {($target_size - $current_width) / 2}]
+        set ipad_y [expr {($target_size - $current_height) / 2}]
 
-	grid $CloseButton -row 0 -column 0 -ipadx $ipad_x -ipady $ipad_y -sticky nsew
-	grid $Content     -row 0 -column 1 -sticky nsew
-	grid columnconfigure $Container 1 -weight 1
-	grid rowconfigure    $Container 0 -weight 1
+        grid $CloseButton -row 0 -column 0 -ipadx $ipad_x -ipady $ipad_y -sticky nsew
+        grid $Content     -row 0 -column 1 -sticky nsew
+        grid columnconfigure $Container 1 -weight 1
+        grid rowconfigure    $Container 0 -weight 1
 
-	bind $CloseButton <ButtonRelease-1> [list [self] onReleaseCloseButton]
-	bind $CloseButton <Enter> +[list [self] onEnterCloseButton]
-	bind $CloseButton <Leave> +[list [self] onLeaveCloseButton]
+        bind $CloseButton <ButtonRelease-1> [list [self] onReleaseCloseButton]
+        bind $CloseButton <Enter> +[list [self] onEnterCloseButton]
+        bind $CloseButton <Leave> +[list [self] onLeaveCloseButton]
 
-	bind $Container <Enter> +[list [self] onEnterContainer]
-	bind $Container <Leave> +[list [self] onLeaveContainer]
+        bind $Container <Enter> +[list [self] onEnterContainer]
+        bind $Container <Leave> +[list [self] onLeaveContainer]
 
-	next $Container
+        next $Container
     }
 
     method refreshColors {} {
-	namespace upvar ::tkcon COLOR C
-	set sel [my selected]
-	$Container configure \
-	    -background [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}]
+        namespace upvar ::tkcon COLOR C
+        set sel [my selected]
+        $Container configure \
+            -background [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}]
 
-	$Content configure \
-	    -background [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}] \
-	    -foreground [expr {$sel ? $C(tab-selected-fg) : $C(tab-fg)}] \
-	    -activebackground [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}] \
-	    -activeforeground [expr {$sel ? $C(tab-selected-fg) : $C(tab-fg)}] \
-	    -selectcolor [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}]
+        $Content configure \
+            -background [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}] \
+            -foreground [expr {$sel ? $C(tab-selected-fg) : $C(tab-fg)}] \
+            -activebackground [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}] \
+            -activeforeground [expr {$sel ? $C(tab-selected-fg) : $C(tab-fg)}] \
+            -selectcolor [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}]
 
-	$CloseButton configure \
-	    -background [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}] \
-	    -foreground [expr {$sel ? $C(tab-selected-fg) : $C(tab-fg)}]
+        $CloseButton configure \
+            -background [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}] \
+            -foreground [expr {$sel ? $C(tab-selected-fg) : $C(tab-fg)}]
     }
 
     method onLeaveContainer {} {
-	namespace upvar ::tkcon COLOR C
-	set sel [my selected]
-	set bg [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}]
-	set fg [expr {$sel ? $C(tab-selected-fg) : $C(tab-fg)}]
+        namespace upvar ::tkcon COLOR C
+        set sel [my selected]
+        set bg [expr {$sel ? $C(tab-selected-bg) : $C(tab-bg)}]
+        set fg [expr {$sel ? $C(tab-selected-fg) : $C(tab-fg)}]
 
-	$Content configure \
-	    -background $bg -foreground $fg \
-	    -activebackground $bg -activeforeground $fg \
-	    -selectcolor $bg
+        $Content configure \
+            -background $bg -foreground $fg \
+            -activebackground $bg -activeforeground $fg \
+            -selectcolor $bg
 
-	$CloseButton configure -background $bg -foreground $fg
+        $CloseButton configure -background $bg -foreground $fg
     }
 
     method onReleaseCloseButton {} {
-	if {[winfo containing {*}[winfo pointerxy .]] eq $CloseButton} {
-	    ::tkcon::DeleteTab $Console
-	}
+        if {[winfo containing {*}[winfo pointerxy .]] eq $CloseButton} {
+            ::tkcon::DeleteTab $Console
+        }
     }
 
     method onEnterCloseButton {} {
-	namespace upvar ::tkcon COLOR C
-	set sel [my selected]
-	event generate $Container <Enter>
-	$CloseButton configure \
-	    -background [expr {$sel ? $C(tab-hover-bg) : $C(tab-bg)}] \
-	    -foreground [expr {$sel ? $C(tab-hover-fg) : $C(tab-fg)}]
+        namespace upvar ::tkcon COLOR C
+        set sel [my selected]
+        event generate $Container <Enter>
+        $CloseButton configure \
+            -background [expr {$sel ? $C(tab-hover-bg) : $C(tab-bg)}] \
+            -foreground [expr {$sel ? $C(tab-hover-fg) : $C(tab-fg)}]
     }
 
     method onLeaveCloseButton {} {
-	$CloseButton configure -background [$Content cget -background] \
-	    -foreground [$Content cget -foreground]
+        $CloseButton configure -background [$Content cget -background] \
+            -foreground [$Content cget -foreground]
     }
 
     method onEnterContainer {} {
-	namespace upvar ::tkcon COLOR C
-	set sel [my selected]
-	set bg [expr {$sel ? $C(tab-selected-bg) : $C(tab-hover-bg)}]
-	set fg [expr {$sel ? $C(tab-selected-fg) : $C(tab-hover-fg)}]
+        namespace upvar ::tkcon COLOR C
+        set sel [my selected]
+        set bg [expr {$sel ? $C(tab-selected-bg) : $C(tab-hover-bg)}]
+        set fg [expr {$sel ? $C(tab-selected-fg) : $C(tab-hover-fg)}]
 
-	$Content configure \
-	    -background $bg -foreground $fg \
-	    -activebackground $bg -activeforeground $fg \
-	    -selectcolor $bg
+        $Content configure \
+            -background $bg -foreground $fg \
+            -activebackground $bg -activeforeground $fg \
+            -selectcolor $bg
 
-	$CloseButton configure -background $bg -foreground $fg
+        $CloseButton configure -background $bg -foreground $fg
     }
 }
 
@@ -259,17 +259,17 @@ proc ::tkcon::tabbutton {con} {
 proc ::tkcon::TabButtonFromConsole {console} {
     set container ""
     foreach instance [info class instances ::tkcon::TabButton] {
-	if {[$instance console] eq $console} {
-	    set container [$instance container]
-	    break
-	}
+        if {[$instance console] eq $console} {
+            set container [$instance container]
+            break
+        }
     }
     return $container
 }
 
 proc ::tkcon::RefreshAllTabButtons {} {
     foreach instance [info class instances ::tkcon::TabButton] {
-	$instance refreshColors
+        $instance refreshColors
     }
 }
 
@@ -301,78 +301,78 @@ proc ::tkcon::InitFonts {} {
     set font_size_default [expr {-int([tk scaling] * 12)}] ;# Note: 12 px (not point)
 
     if {![info exists OPT(font)]} {
-	set fixed_family [::apply {{} {
-	    set families [switch -- [tk windowingsystem] {
-		win32   {expr {{"Cascadia Code" "Consolas" "Lucida Console" "Courier New"}}}
-		aqua    {expr {{"SF Mono" "Menlo" "Monaco"}}}
-		default {expr {{"Noto Sans Mono" "DejaVu Sans Mono" "Liberation Mono" "Ubuntu Mono"}}}
-	    }]
-	    foreach fam $families {
-		if {$fam in [font families]} {
-		    return $fam
-		}
-	    }
-	    return "Courier"
-	}}]
+        set fixed_family [::apply {{} {
+            set families [switch -- [tk windowingsystem] {
+                win32   {expr {{"Cascadia Code" "Consolas" "Lucida Console" "Courier New"}}}
+                aqua    {expr {{"SF Mono" "Menlo" "Monaco"}}}
+                default {expr {{"Noto Sans Mono" "DejaVu Sans Mono" "Liberation Mono" "Ubuntu Mono"}}}
+            }]
+            foreach fam $families {
+                if {$fam in [font families]} {
+                    return $fam
+                }
+            }
+            return "Courier"
+        }}]
 
-	font create tkcon-fixed -family $fixed_family -size $font_size_default
-	set OPT(font) tkcon-fixed
+        font create tkcon-fixed -family $fixed_family -size $font_size_default
+        set OPT(font) tkcon-fixed
 
     } else {
-	font create tkcon-fixed -family [font configure $OPT(font) -family] \
-	    -size [font configure $OPT(font) -size]
+        font create tkcon-fixed -family [font configure $OPT(font) -family] \
+            -size [font configure $OPT(font) -size]
     }
 
     font create tkcon-fixed-bold -family [font configure tkcon-fixed -family] \
-	-size [font configure tkcon-fixed -size] \
-	-weight bold
+        -size [font configure tkcon-fixed -size] \
+        -weight bold
 
     font create tkcon-fixed-extra-small -family [font configure tkcon-fixed -family] \
-	-size [expr {int(0.6875 * [font configure tkcon-fixed -size])}]
+        -size [expr {int(0.6875 * [font configure tkcon-fixed -size])}]
 
     font create tkcon-fixed-small -family [font configure tkcon-fixed -family] \
-	-size [expr {int(0.875 * [font configure tkcon-fixed -size])}]
+        -size [expr {int(0.875 * [font configure tkcon-fixed -size])}]
 
     font create tkcon-fixed-large -family [font configure tkcon-fixed -family] \
-	-size [expr {int(1.125 * [font configure tkcon-fixed -size])}]
+        -size [expr {int(1.125 * [font configure tkcon-fixed -size])}]
 
     set PRIV(fontsize) [expr {abs([font configure tkcon-fixed -size])}]
 
     if {![info exists OPT(font-sans-serif)]} {
-	set sans_serif_family [::apply {{} {
-	    set families [switch -- [tk windowingsystem] {
-		win32   {expr {{"Segoe UI" "Tahoma" "MS Sans Serif" "Arial"}}}
-		aqua    {expr {{"SF Pro Text" "Lucida Grande" "Geneva"}}}
-		default {expr {{"Noto Sans" "DejaVu Sans" "Liberation Sans" "Ubuntu"}}}
-	    }]
-	    foreach fam $families {
-		if {$fam in [font families]} {
-		    return $fam
-		}
-	    }
-	    return "Helvetica"
-	}}]
+        set sans_serif_family [::apply {{} {
+            set families [switch -- [tk windowingsystem] {
+                win32   {expr {{"Segoe UI" "Tahoma" "MS Sans Serif" "Arial"}}}
+                aqua    {expr {{"SF Pro Text" "Lucida Grande" "Geneva"}}}
+                default {expr {{"Noto Sans" "DejaVu Sans" "Liberation Sans" "Ubuntu"}}}
+            }]
+            foreach fam $families {
+                if {$fam in [font families]} {
+                    return $fam
+                }
+            }
+            return "Helvetica"
+        }}]
 
-	font create tkcon-sans-serif -family $sans_serif_family -size $font_size_default
-	set OPT(font-sans-serif) tkcon-sans-serif
+        font create tkcon-sans-serif -family $sans_serif_family -size $font_size_default
+        set OPT(font-sans-serif) tkcon-sans-serif
 
     } else {
-	font create tkcon-sans-serif -family [font configure $OPT(font-sans-serif) -family] \
-	    -size [font configure $OPT(font-sans-serif) -size]
+        font create tkcon-sans-serif -family [font configure $OPT(font-sans-serif) -family] \
+            -size [font configure $OPT(font-sans-serif) -size]
     }
 
     font create tkcon-sans-serif-bold -family [font configure tkcon-sans-serif -family] \
-	-size [font configure tkcon-sans-serif -size] \
-	-weight bold
+        -size [font configure tkcon-sans-serif -size] \
+        -weight bold
 
     font create tkcon-sans-serif-extra-small -family [font configure tkcon-sans-serif -family] \
-	-size [expr {int(0.6875 * [font configure tkcon-sans-serif -size])}]
+        -size [expr {int(0.6875 * [font configure tkcon-sans-serif -size])}]
 
     font create tkcon-sans-serif-small -family [font configure tkcon-sans-serif -family] \
-	-size [expr {int(0.875 * [font configure tkcon-sans-serif -size])}]
+        -size [expr {int(0.875 * [font configure tkcon-sans-serif -size])}]
 
     font create tkcon-sans-serif-large -family [font configure tkcon-sans-serif -family] \
-	-size [expr {int(1.125 * [font configure tkcon-sans-serif -size])}]
+        -size [expr {int(1.125 * [font configure tkcon-sans-serif -size])}]
 }
 
 ## ::tkcon::DarkModeSetting - detects dark mode
@@ -382,21 +382,21 @@ proc ::tkcon::DarkModeSetting {} {
     variable PRIV
     set darkmode 0
     catch {
-	if {$PRIV(WIN32)} {
-	    package require registry
-	    set keypath {HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize}
-	    set darkmode [expr {[registry get $keypath AppsUseLightTheme] == 0}]
+        if {$PRIV(WIN32)} {
+            package require registry
+            set keypath {HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize}
+            set darkmode [expr {[registry get $keypath AppsUseLightTheme] == 0}]
 
-	} elseif {$PRIV(AQUA)} {
-	    set istyle [exec defaults read -g AppleInterfaceStyle]
-	    set darkmode [expr {$istyle eq "Dark"}]
+        } elseif {$PRIV(AQUA)} {
+            set istyle [exec defaults read -g AppleInterfaceStyle]
+            set darkmode [expr {$istyle eq "Dark"}]
 
-	} else {
-	    set colorscheme_query {qdbus org.freedesktop.portal.Desktop /org/freedesktop/portal/desktop
-		org.freedesktop.portal.Settings.Read "org.freedesktop.appearance" "color-scheme"
-	    }
-	    set darkmode [expr {1 == [exec {*}$colorscheme_query]}]
-	}
+        } else {
+            set colorscheme_query {qdbus org.freedesktop.portal.Desktop /org/freedesktop/portal/desktop
+                org.freedesktop.portal.Settings.Read "org.freedesktop.appearance" "color-scheme"
+            }
+            set darkmode [expr {1 == [exec {*}$colorscheme_query]}]
+        }
 
     }
     return $darkmode
@@ -404,7 +404,7 @@ proc ::tkcon::DarkModeSetting {} {
 
 proc ::tkcon::HexToBGR {color} {
     if {[scan $color "#%2x%2x%2x" r g b] != 3} {
-	return -code error "Invalid hex color format: $color"
+        return -code error "Invalid hex color format: $color"
     }
     return [expr {($b << 16) | ($g << 8) | $r}]
 }
@@ -412,7 +412,7 @@ proc ::tkcon::HexToBGR {color} {
 proc ::tkcon::SetWindowColor {window color} {
     variable PRIV
     if {!$PRIV(WIN32) || [catch {package require cffi}]} {
-	return
+        return
     }
 
     cffi::alias load win32
@@ -421,28 +421,28 @@ proc ::tkcon::SetWindowColor {window color} {
 
     cffi::alias define HRESULT {long nonnegative winerror}
     dwmapi stdcall DwmSetWindowAttribute HRESULT {
-	hwnd pointer.HWND dwAttribute DWORD pvAttribute pointer	cbAttribute DWORD
+        hwnd pointer.HWND dwAttribute DWORD pvAttribute pointer cbAttribute DWORD
     }
 
     user32 stdcall GetParent pointer.HWND {
-	hwnd pointer.HWND
+        hwnd pointer.HWND
     }
 
     proc ::tkcon::SetWindowColor {window color} {
-	set DWMWA_CAPTION_COLOR 35
-	set hwndptr [cffi::pointer make [winfo id $window] HWND]
-	cffi::pointer safe $hwndptr
-	set parentptr [GetParent $hwndptr]
+        set DWMWA_CAPTION_COLOR 35
+        set hwndptr [cffi::pointer make [winfo id $window] HWND]
+        cffi::pointer safe $hwndptr
+        set parentptr [GetParent $hwndptr]
 
-	set colorptr [cffi::arena pushframe DWORD]
-	cffi::memory set $colorptr DWORD [HexToBGR $color]
+        set colorptr [cffi::arena pushframe DWORD]
+        cffi::memory set $colorptr DWORD [HexToBGR $color]
 
-	set size [cffi::type size DWORD]
-	DwmSetWindowAttribute $parentptr $DWMWA_CAPTION_COLOR $colorptr $size
+        set size [cffi::type size DWORD]
+        DwmSetWindowAttribute $parentptr $DWMWA_CAPTION_COLOR $colorptr $size
 
-	cffi::arena popframe
-	cffi::pointer dispose $hwndptr
-	cffi::pointer dispose $parentptr
+        cffi::arena popframe
+        cffi::pointer dispose $hwndptr
+        cffi::pointer dispose $parentptr
     }
 
     tailcall ::tkcon::SetWindowColor $window $color
@@ -1766,34 +1766,34 @@ proc ::tkcon::Prompt {{pre {}} {post {}} {prompt {}}} {
 oo::class create ::tkcon::AboutDialog {
     superclass ::tkcon::Dialog
     constructor {} {
-	global tk_patchLevel tcl_patchLevel
-	namespace upvar ::tkcon PRIV PRIV
-	set dialog $PRIV(base).about
+        global tk_patchLevel tcl_patchLevel
+        namespace upvar ::tkcon PRIV PRIV
+        set dialog $PRIV(base).about
 
-	next $dialog "About Tkcon"
+        next $dialog "About Tkcon"
 
-	set button [ttk::button $dialog.b -text Dismiss -command [list [self] dismiss]]
-	set about_text    "\n\nCopyright \u00A9 1995-2025, Jeffrey Hobbs &co."
-	append about_text "\nRunning: Tcl v$tcl_patchLevel / Tk v$tk_patchLevel"
-	if {[file exists $PRIV(docs)]} {
-	    append about_text "\nDocumentation available at:\n$PRIV(docs)"
-	}
-	set text [text $dialog.text -highlightthickness 0]
-	$text tag config center -justify center -font tkcon-sans-serif
-	$text tag config title  -justify center -font tkcon-sans-serif-bold
-	$text insert 1.0 "\nTkcon version $PRIV(version)" title $about_text center
-	$text config -state disabled
-	set cols 42
-	set rows [::tkcon::CalcRowsFromCols $cols]
-	$text config -width $cols -height $rows
-	pack $text -fill both -expand 1
-	set padding [expr {int([font measure tkcon-sans-serif-small "M"] / 2.0)}]
-	pack $button -side bottom -expand 1 -anchor sw -padx $padding -pady $padding
-	bind $dialog <Escape> [list destroy $dialog]
+        set button [ttk::button $dialog.b -text Dismiss -command [list [self] dismiss]]
+        set about_text    "\n\nCopyright \u00A9 1995-2025, Jeffrey Hobbs &co."
+        append about_text "\nRunning: Tcl v$tcl_patchLevel / Tk v$tk_patchLevel"
+        if {[file exists $PRIV(docs)]} {
+            append about_text "\nDocumentation available at:\n$PRIV(docs)"
+        }
+        set text [text $dialog.text -highlightthickness 0]
+        $text tag config center -justify center -font tkcon-sans-serif
+        $text tag config title  -justify center -font tkcon-sans-serif-bold
+        $text insert 1.0 "\nTkcon version $PRIV(version)" title $about_text center
+        $text config -state disabled
+        set cols 42
+        set rows [::tkcon::CalcRowsFromCols $cols]
+        $text config -width $cols -height $rows
+        pack $text -fill both -expand 1
+        set padding [expr {int([font measure tkcon-sans-serif-small "M"] / 2.0)}]
+        pack $button -side bottom -expand 1 -anchor sw -padx $padding -pady $padding
+        bind $dialog <Escape> [list destroy $dialog]
     }
 
     method dismiss {} {
-	my destroy
+        my destroy
     }
 }
 
@@ -2408,58 +2408,58 @@ oo::class create ::tkcon::FindDialog {
     superclass ::tkcon::Dialog
     variable Text
     constructor {{text_widget {}} {str {}}} {
-	namespace upvar ::tkcon PRIV PRIV
-	set Text [expr {$text_widget ne "" ? $text_widget : $PRIV(console)}]
-	set dialog $PRIV(base).find
+        namespace upvar ::tkcon PRIV PRIV
+        set Text [expr {$text_widget ne "" ? $text_widget : $PRIV(console)}]
+        set dialog $PRIV(base).find
 
-	next $dialog "Find" $Text
+        next $dialog "Find" $Text
 
-	set findlabel [ttk::label $dialog.find_label -text "Find:" -anchor e]
-	set findentry [ttk::entry $dialog.find_entry -textvariable ::tkcon::PRIV(find)]
-	set casebutton   [ttk::checkbutton $dialog.case -text "Case Sensitive" -variable ::tkcon::PRIV(find,case)]
-	set regexpbutton [ttk::checkbutton $dialog.re   -text "Use Regexp" -variable ::tkcon::PRIV(find,reg)]
+        set findlabel [ttk::label $dialog.find_label -text "Find:" -anchor e]
+        set findentry [ttk::entry $dialog.find_entry -textvariable ::tkcon::PRIV(find)]
+        set casebutton   [ttk::checkbutton $dialog.case -text "Case Sensitive" -variable ::tkcon::PRIV(find,case)]
+        set regexpbutton [ttk::checkbutton $dialog.re   -text "Use Regexp" -variable ::tkcon::PRIV(find,reg)]
 
-	set buttonbar [ttk::frame $dialog.buttonbar]
-	grid $findlabel $findentry - - -sticky ew -padx 4 -pady 4
-	grid $casebutton - $regexpbutton -sticky ew -padx 4
-	grid $buttonbar -columnspan 4 -sticky ew -padx 2 -pady 2
-	grid columnconfigure $dialog 2 -weight 1
+        set buttonbar [ttk::frame $dialog.buttonbar]
+        grid $findlabel $findentry - - -sticky ew -padx 4 -pady 4
+        grid $casebutton - $regexpbutton -sticky ew -padx 4
+        grid $buttonbar -columnspan 4 -sticky ew -padx 2 -pady 2
+        grid columnconfigure $dialog 2 -weight 1
 
-	ttk::button $buttonbar.find  -text "Find" -command [list [self] find]
-	ttk::button $buttonbar.clear -text "Clear" -command [list [self] clear]
-	ttk::button $buttonbar.dismiss -text "Dismiss" -command [list [self] dismiss]
-	grid $buttonbar.find $buttonbar.clear $buttonbar.dismiss -padx 4 -pady 2 -sticky ew
+        ttk::button $buttonbar.find  -text "Find" -command [list [self] find]
+        ttk::button $buttonbar.clear -text "Clear" -command [list [self] clear]
+        ttk::button $buttonbar.dismiss -text "Dismiss" -command [list [self] dismiss]
+        grid $buttonbar.find $buttonbar.clear $buttonbar.dismiss -padx 4 -pady 2 -sticky ew
 
-	bind $findentry <Return> [list $buttonbar.find invoke]
-	bind $findentry <Escape> [list $buttonbar.dismiss invoke]
+        bind $findentry <Return> [list $buttonbar.find invoke]
+        bind $findentry <Escape> [list $buttonbar.dismiss invoke]
 
-	if {$str ne ""} {
-	    set PRIV(find) $str
-	    my find
-	}
+        if {$str ne ""} {
+            set PRIV(find) $str
+            my find
+        }
 
-	focus $findentry
-	$findentry select range 0 end
+        focus $findentry
+        $findentry select range 0 end
     }
 
     destructor {
-	my clear
+        my clear
     }
 
     method find {} {
-	namespace upvar ::tkcon PRIV PRIV
-	::tkcon::Find [list $Text] $PRIV(find) -case $PRIV(find,case) -reg $PRIV(find,reg)
+        namespace upvar ::tkcon PRIV PRIV
+        ::tkcon::Find [list $Text] $PRIV(find) -case $PRIV(find,case) -reg $PRIV(find,reg)
     }
 
     method clear {} {
-	if {[winfo exists $Text]} {
-	    $Text tag remove find 1.0 end
-	}
-	set ::tkcon::PRIV(find) {}
+        if {[winfo exists $Text]} {
+            $Text tag remove find 1.0 end
+        }
+        set ::tkcon::PRIV(find) {}
     }
 
     method dismiss {} {
-	my destroy
+        my destroy
     }
 }
 
