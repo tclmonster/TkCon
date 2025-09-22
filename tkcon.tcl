@@ -33,26 +33,10 @@
 ##
 
 ## Modifications for version 3.0 release Copyright (c) 2025 Bandoti Ltd.
-## Major enhancements include object-oriented user experience redesign.
-
-# Proxy support for retrieving the current version of Tkcon.
-#
-# Mon Jun 25 12:19:56 2001 - Pat Thoyts
-#
-# In your tkcon.cfg or .tkconrc file put your proxy details into the
-# `proxy' member of the `PRIV' array. e.g.:
-#
-#    set ::tkcon::PRIV(proxy) wwwproxy:8080
-#
-# If you want to be prompted for proxy authentication details (eg for
-# an NT proxy server) make the second element of this variable non-nil - eg:
-#
-#    set ::tkcon::PRIV(proxy) {wwwproxy:8080 1}
-#
-# Or you can set the above variable from within tkcon by calling
-#
-#    tkcon master set ::tkcon:PRIV(proxy) wwwproxy:8080
-#
+## Major enhancements include dark-mode detection & colors (based upon
+## Adobe Spectrum color palette—see https://github.com/tclmonster/spectrum-tk);
+## cffi functionality for setting window color on Win32; tabbed consoles; and
+## new object-oriented widget types.
 
 package require Tk 8.6-
 
@@ -607,6 +591,10 @@ proc ::tkcon::Init {args} {
     }
     set PRIV(version) $VERSION
 
+    if {![info exists OPT(title)]} {
+	set OPT(title) "tkcon $PRIV(version)"
+    }
+
     if {[info exists PRIV(name)]} {
 	set title $PRIV(name)
     } else {
@@ -1105,7 +1093,7 @@ proc ::tkcon::InitUI {title} {
     }
 
     if {!$PRIV(WWW)} {
-	wm title $root "tkcon $PRIV(version) $title"
+	wm title $root "$OPT(title) $title"
 	if {$PRIV(showOnStartup)} {
 	    # this may throw an error if toplevel is embedded
 	    catch {wm deiconify $root}
