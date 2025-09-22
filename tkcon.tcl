@@ -131,7 +131,8 @@ oo::class create ::tkcon::Dialog {
 	wm withdraw $path
 	catch {wm attributes $path -type dialog}
 	wm resizable $path 0 0
-	set relative_to [expr {$relative_to eq "" ? [focus] : $relative_to}]
+	set focus [expr {[focus] ne "" ? [focus] : "."}]
+	set relative_to [expr {$relative_to eq "" ? $focus : $relative_to}]
 	set x [expr {[winfo rootx $relative_to] + [winfo width $relative_to]/4}]
 	set y [expr {[winfo rooty $relative_to] + [winfo height $relative_to]/4}]
 	wm geometry $path [format %+d%+d $x $y]
@@ -4301,6 +4302,11 @@ proc edit {args} {
 	wm title $w "$word - tkcon Edit"
     }
 
+    set relative_to [expr {[focus] ne "" ? [focus] : "."}]
+    set x [expr {[winfo rootx $relative_to] + [winfo width $relative_to]/4}]
+    set y [expr {[winfo rooty $relative_to] + [winfo height $relative_to]/4}]
+    wm geometry $w [format %+d%+d $x $y]
+
     if {[package provide ctext] ne ""} {
 	set txt [ctext $w.text]
     } else {
@@ -4398,6 +4404,7 @@ proc edit {args} {
 	    $w.text insert 1.0 [join $args \n]
 	}
     }
+    $w.text config -height [::tkcon::CalcRowsFromCols [$w.text cget -width]] ;# Harmonious proportions
     # prevent stuff above being "undoable" in newer Tk
     catch { $w.text edit reset ; $w.text edit modified 0 }
     wm deiconify $w
