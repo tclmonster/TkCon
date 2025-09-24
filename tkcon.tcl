@@ -2905,8 +2905,9 @@ proc ::tkcon::MainInit {} {
 	if {[info exists argc]}  {$tmp eval [list set argc $argc]}
 	if {[info exists argv]}  {$tmp eval [list set argv $argv]}
 	$tmp eval [list namespace eval ::tkcon {}]
-	$tmp eval [list set ::tkcon::PRIV(name) $tmp]
+	$tmp eval [list set ::tkcon::PRIV(name)   $tmp]
 	$tmp eval [list set ::tkcon::PRIV(SCRIPT) $::tkcon::PRIV(SCRIPT)]
+	$tmp eval [list set ::tkcon::OPT(title)   $::tkcon::OPT(title)]
 	$tmp alias exit				::tkcon::Exit $tmp
 	$tmp alias ::tkcon::Destroy		::tkcon::Destroy $tmp
 	$tmp alias ::tkcon::New			::tkcon::New
