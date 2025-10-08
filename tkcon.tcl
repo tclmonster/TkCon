@@ -83,6 +83,7 @@ namespace eval ::tkcon {
 
 oo::class create ::tkcon::Widget {
     variable Path
+
     constructor {path} {
         rename ::$path [self namespace]::$path
         interp alias {} ::$path {} [self]
@@ -91,15 +92,20 @@ oo::class create ::tkcon::Widget {
             if {[info object isa object $obj]} {
                 $obj destroy
             }
+
         }} [self]]
 
         set Path $path
     }
+
     destructor {
+        interp alias {} ::$Path {}
+
         if {[winfo exists $Path]} {
             destroy $Path
         }
     }
+
     method unknown {subcmd args} {
         [self namespace]::$Path $subcmd {*}$args
     }
